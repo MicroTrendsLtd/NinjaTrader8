@@ -8,9 +8,6 @@ About: ATSQuadroStrategyBase is a NinjaTrader 8 Strategy unmanaged mode trade en
 
 Updates: Visit www.microtrends.pro for updates and GIT open source project code latest: https://github.com/MicroTrendsLtd/NinjaTrader8
 
-Simply download and extract from zip, copy the NinjaTrader 8 folder/merge to your local NinjaTrader 8 Folder.
-\ATSQuadroStrategyBase\NinjaTrader 8\
-
 The mnain file is:
 \ATSQuadroStrategyBase\NinjaTrader 8\bin\Custom\Strategies\AlgoSystemBase.cs
 
