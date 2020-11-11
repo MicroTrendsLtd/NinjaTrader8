@@ -1,4 +1,4 @@
-﻿//MIT License/OPEN SOURCE LICENSE
+//MIT License/OPEN SOURCE LICENSE
 //Copyright(C) 2020, Algo Trading Systems LLC <www.algotradingsystems.net>
 //
 //Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -11,10 +11,9 @@
 //Legal Forum: In using this product you agree to the terms and NYC Jurisdiction
 //Developer: Tom Leeson of MicroTrends LTd www.microtrends.pro
 //About: ATSQuadroStrategyBase is a NinjaTrader 8 Strategy unmanaged mode trade engine base foundation for futures, comprising of 4 Bracket capacity, all In scale out non position compounding,  prevents overfills and builds on functionality provided by the Managed approach for NinjaTrader Strategies. 
-//Updates: Visit www.microtrends.pro for updates and GIT open source project code latest: https://github.com/MicroTrendsTom/ATS.NinjaTrader8
-//Version: 2020.11.10.5
-//History:
-//2020/11/10 Added to github made open source
+//Updates: Visit www.microtrends.pro for updates and GIT open source project code latest: https://github.com/MicroTrendsLtd/NinjaTrader8/
+//Version: 2020.11.11.1
+//History: See gitHub history
 
 
 #region Using declarations
@@ -251,6 +250,13 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
 
 
+    }
+    #endregion
+    #region partial StrategyBase Class
+    public partial class Strategy : NinjaTrader.Gui.NinjaScript.StrategyRenderBase
+    {
+        //can be handy to have this reference when creating indicator wrappers in derived class instances
+        internal Indicators.Indicator StrategyIndicator { get { return indicator; } }
     }
     #endregion
 
@@ -3129,6 +3135,8 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         #endregion
         #region properties
+
+
 
 
 
