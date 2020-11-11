@@ -12,9 +12,8 @@ Simply download and extract from zip, copy the NinjaTrader 8 folder/merge to you
 The mnain file is:
 \ATSQuadroStrategyBase\NinjaTrader 8\bin\Custom\Strategies\AlgoSystemBase.cs
 
-
-NinjaTrader Links
-https://ninjatrader.com/support/forum/forum/ninjascript-file-sharing/ninjascript-file-sharing-discussion/1126945-atsquadrostrategybase-nt8-strategy-foundation-with-samplemacrossover#post1127051
+NinjaTrader Links and Info
+https://ninjatrader.com/support/forum/forum/ninjascript-file-sharing/ninjascript-file-sharing-discussion/1126945-atsquadrostrategybase-nt8-strategy-foundation-with-samplemacrossover
 
 NinjaTrader APP Share
 Simply download and import to NinjaTrader 8 from here
