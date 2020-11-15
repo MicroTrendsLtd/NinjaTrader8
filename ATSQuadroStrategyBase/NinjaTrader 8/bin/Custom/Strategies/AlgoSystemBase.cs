@@ -12,7 +12,7 @@
 //Developer: Tom Leeson of MicroTrends LTd www.microtrends.pro
 //About: ATSQuadroStrategyBase is a NinjaTrader 8 Strategy unmanaged mode trade engine base foundation for futures, comprising of 4 Bracket capacity, all In scale out non position compounding,  prevents overfills and builds on functionality provided by the Managed approach for NinjaTrader Strategies. 
 //Updates: Visit www.microtrends.pro for updates and GIT open source project code latest: https://github.com/MicroTrendsLtd/NinjaTrader8/
-//Version: 2020.11.12.1
+//Version: 2020.11.13.5
 //History: See gitHub history
 
 
@@ -819,37 +819,36 @@ namespace NinjaTrader.NinjaScript.Strategies
                             }
                             else if (StopLossOrders.Contains(order))
                             {
-                                //if (Account.Connection == Connection.PlaybackConnection) return;
-
-
                                 if (TradeWorkFlow == StrategyTradeWorkFlowState.GoShortPlaceStopsPending || TradeWorkFlow == StrategyTradeWorkFlowState.GoLongPlaceStopsPending)
                                 {
-                                    bool result = IsOrdersAllActiveOrWorking(StopLossOrders) && StopLossOrders.Sum(o => o.Quantity) == orderEntry.Quantity;
-
-
-                                    if (result)
+                                    //put a lock here as this region was causing errors
+                                    lock (StopLossOrders)
                                     {
-                                        if (TradeWorkFlow == StrategyTradeWorkFlowState.GoShortPlaceStopsPending) TradeWorkFlow = StrategyTradeWorkFlowState.GoShortPlaceStopsConfirmed;
-                                        else if (TradeWorkFlow == StrategyTradeWorkFlowState.GoLongPlaceStopsPending) TradeWorkFlow = StrategyTradeWorkFlowState.GoLongPlaceStopsConfirmed;
-                                        ProcessWorkFlow();
+                                        bool result = IsOrdersAllActiveOrWorkingOrFilled(StopLossOrders) && StopLossOrders.Sum(o => o.Quantity) == orderEntry.Quantity;
+                                        if (result)
+                                        {
+                                            if (TradeWorkFlow == StrategyTradeWorkFlowState.GoShortPlaceStopsPending) TradeWorkFlow = StrategyTradeWorkFlowState.GoShortPlaceStopsConfirmed;
+                                            else if (TradeWorkFlow == StrategyTradeWorkFlowState.GoLongPlaceStopsPending) TradeWorkFlow = StrategyTradeWorkFlowState.GoLongPlaceStopsConfirmed;
+                                            ProcessWorkFlow();
+                                        }
                                     }
                                 }
                             }
                             else if (ProfitTargetOrders.Contains(order))
                             {
 
-                                //if (Account.Connection == Connection.PlaybackConnection) return;  //let the marketdata roll it
-
                                 if (TradeWorkFlow == StrategyTradeWorkFlowState.GoShortPlaceProfitTargetsPending || TradeWorkFlow == StrategyTradeWorkFlowState.GoLongPlaceProfitTargetsPending)
                                 {
-                                    bool result = IsOrdersAllActiveOrWorkingOrFilled(ProfitTargetOrders) && ProfitTargetOrders.Sum(o => o.Quantity) == orderEntry.Quantity;
-
-
-                                    if (result)
+                                    //put a lock here as this region was causing errors
+                                    lock (ProfitTargetOrders)
                                     {
-                                        if (TradeWorkFlow == StrategyTradeWorkFlowState.GoShortPlaceProfitTargetsPending) TradeWorkFlow = StrategyTradeWorkFlowState.GoShortPlaceProfitTargetsConfirmed;
-                                        else if (TradeWorkFlow == StrategyTradeWorkFlowState.GoLongPlaceProfitTargetsPending) TradeWorkFlow = StrategyTradeWorkFlowState.GoLongPlaceProfitTargetsConfirmed;
-                                        ProcessWorkFlow();
+                                        bool result = IsOrdersAllActiveOrWorkingOrFilled(ProfitTargetOrders) && ProfitTargetOrders.Sum(o => o.Quantity) == orderEntry.Quantity;
+                                        if (result)
+                                        {
+                                            if (TradeWorkFlow == StrategyTradeWorkFlowState.GoShortPlaceProfitTargetsPending) TradeWorkFlow = StrategyTradeWorkFlowState.GoShortPlaceProfitTargetsConfirmed;
+                                            else if (TradeWorkFlow == StrategyTradeWorkFlowState.GoLongPlaceProfitTargetsPending) TradeWorkFlow = StrategyTradeWorkFlowState.GoLongPlaceProfitTargetsConfirmed;
+                                            ProcessWorkFlow();
+                                        }
                                     }
                                 }
                             }
@@ -903,7 +902,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 Print("OnOrderUpdate >> Error: " + ex.ToString());
                 Debug.Print("OnOrderUpdate >> Error: " + ex.ToString());
-                Log("OnMarketData >> Error: " + ex.ToString(), LogLevel.Error);
+                Log("OnOrderUpdate >> Error: " + ex.ToString(), LogLevel.Error);
 
             }
 
@@ -1821,20 +1820,22 @@ namespace NinjaTrader.NinjaScript.Strategies
                         goto case StrategyTradeWorkFlowState.GoLongPlaceStopsConfirmed;
                     }
 
-                    bool allConfirmedGoLongPlaceStops = IsOrdersAllActiveOrWorkingOrFilled(StopLossOrders);
-
-
-                    if (!allConfirmedGoLongPlaceStops)
+                    lock (StopLossOrders)
                     {
-                        TradeWorkFlowOnMarketDataEnable();
-                        //will continue to loop back here forever unless we have a timeout
-                        tradeWorkFlowRetryCount++;
-                        if (tradeWorkFlowRetryCount > tradeWorkFlowRetryAlarm)
-                            return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
-                    }
-                    else
-                    {
-                        return ProcessWorkFlow(StrategyTradeWorkFlowState.GoLongPlaceStopsConfirmed);
+                        bool allConfirmedGoLongPlaceStops = IsOrdersAllActiveOrWorkingOrFilled(StopLossOrders);
+
+                        if (!allConfirmedGoLongPlaceStops)
+                        {
+                            TradeWorkFlowOnMarketDataEnable();
+                            //will continue to loop back here forever unless we have a timeout
+                            tradeWorkFlowRetryCount++;
+                            if (tradeWorkFlowRetryCount > tradeWorkFlowRetryAlarm)
+                                return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
+                        }
+                        else
+                        {
+                            return ProcessWorkFlow(StrategyTradeWorkFlowState.GoLongPlaceStopsConfirmed);
+                        }
                     }
                     break;
                 case StrategyTradeWorkFlowState.GoLongPlaceStopsConfirmed:
@@ -2111,7 +2112,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         goto case StrategyTradeWorkFlowState.GoShortPlaceStopsConfirmed;
                     }
 
-                    bool allConfirmedGoShortPlaceStops = IsOrdersAllActiveOrWorkingOrFilled(ProfitTargetOrders);
+                    bool allConfirmedGoShortPlaceStops = IsOrdersAllActiveOrWorkingOrFilled(StopLossOrders);
 
 
                     if (!allConfirmedGoShortPlaceStops)
@@ -2771,18 +2772,38 @@ namespace NinjaTrader.NinjaScript.Strategies
             orderEntryOCOShort = SubmitOrderUnmanaged(0, OrderAction.SellShort, OrderType.StopMarket, this.DefaultQuantity, 0, GetCurrentBid(0) - 10 * TickSize, oCOId, "OCO-S");
         }
 
+
         private bool IsOrdersAllActiveOrWorking(List<Order> orders)
         {
-            if (orders == null || orders.Count() == 0) return false;
 
-            return orders.Count(o => o.OrderState == OrderState.Accepted || o.OrderState == OrderState.Working) == orders.Count();
+            //belt and braces code as errors logged were related to this method
+            bool result = false;
+            try
+            {
+                if (orders == null || orders.Count() == 0) return false;
+                result = orders.Count(o => o != null && o.OrderState == OrderState.Accepted || o.OrderState == OrderState.Working) == orders.Count(o => o != null);
+            }
+            catch
+            {
+                result = false;
+            }
+            return result;
         }
 
         private bool IsOrdersAllActiveOrWorkingOrFilled(List<Order> orders)
         {
-            if (orders == null || orders.Count() == 0) return false;
-
-            return orders.Count(o => o.OrderState == OrderState.Accepted || o.OrderState == OrderState.Working || o.OrderState == OrderState.PartFilled || o.OrderState == OrderState.Filled) == orders.Count();
+            //belt and braces code as errors logged were related to this method
+            bool result = false;
+            try
+            {
+                if (orders == null || orders.Count() == 0) return false;
+                return orders.Count(o => o!=null && o.OrderState == OrderState.Accepted || o.OrderState == OrderState.Working || o.OrderState == OrderState.PartFilled || o.OrderState == OrderState.Filled) == orders.Count(o => o != null);
+            }
+            catch
+            {
+                result = false;
+            }
+            return result;
         }
 
 
@@ -2822,18 +2843,15 @@ namespace NinjaTrader.NinjaScript.Strategies
                 throw new Exception("submitStopLossInternal Error - no order connection - unable to submit stoploss");
             }
 
-
             SubmitStopLoss(this.orderEntry);
             //add stops to list set graphics
 
-
             if (Account.Connection == Connection.PlaybackConnection) return;
 
-            StopLossOrders.Add(orderStop1);
-            StopLossOrders.Add(orderStop2);
-            StopLossOrders.Add(orderStop3);
-            StopLossOrders.Add(orderStop4);
-
+            if (orderStop1 != null) StopLossOrders.Add(orderStop1);
+            if (orderStop2 != null) StopLossOrders.Add(orderStop2);
+            if (orderStop3 != null) StopLossOrders.Add(orderStop3);
+            if (orderStop4 != null) StopLossOrders.Add(orderStop4);
 
         }
 
@@ -2862,10 +2880,10 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             SubmitProfitTarget(this.orderEntry, this.oCOId);
 
-            ProfitTargetOrders.Add(orderTarget1);
-            ProfitTargetOrders.Add(orderTarget2);
-            ProfitTargetOrders.Add(orderTarget3);
-            ProfitTargetOrders.Add(orderTarget4);
+            if (orderTarget1 != null) ProfitTargetOrders.Add(orderTarget1);
+            if (orderTarget2 != null) ProfitTargetOrders.Add(orderTarget2);
+            if (orderTarget3 != null) ProfitTargetOrders.Add(orderTarget3);
+            if (orderTarget4 != null) ProfitTargetOrders.Add(orderTarget4);
 
 
         }
