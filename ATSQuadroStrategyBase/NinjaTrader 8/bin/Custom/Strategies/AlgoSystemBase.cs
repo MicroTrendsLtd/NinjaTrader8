@@ -443,7 +443,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                         break;
                     case State.Configure:
                         ATSAlgoSystemState = AlgoSystemState.Starting;
-                        InstrumentFullName = this.Instrument.FullName;
 
                         break;
                     case State.Active:
@@ -459,6 +458,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                             ATSAlgoSystemMode = AlgoSystemMode.Replay;
 
                         ATSAlgoSystemState = AlgoSystemState.DataLoaded;
+                        
+                       InstrumentFullName = this.Instrument.FullName;
 
                         break;
                     case State.Historical:
