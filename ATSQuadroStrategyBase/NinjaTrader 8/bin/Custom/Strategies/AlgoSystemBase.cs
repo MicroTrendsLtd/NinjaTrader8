@@ -10,9 +10,13 @@
 //Algo Trading Systems (ATS) reserves the right to modify or overwrite this NinjaScript component with each release without notice.
 //Legal Forum: In using this product you agree to the terms and NYC Jurisdiction
 //Developer: Tom Leeson of MicroTrends LTd www.microtrends.pro
+//GIT: https://github.com/MicroTrendsLtd/NinjaTrader8/
+//Suport: support@microtrends.pro or via GIT
+//Bugs: please report at GIT
+//Collaboration: All welcome at GIT
+//Updates: Visit GIT open source project code for the latest.
 //About: ATSQuadroStrategyBase is a NinjaTrader 8 Strategy unmanaged mode trade engine base foundation for futures, comprising of 4 Bracket capacity, all In scale out non position compounding,  prevents overfills and builds on functionality provided by the Managed approach for NinjaTrader Strategies. 
-//Updates: Visit www.microtrends.pro for updates and GIT open source project code latest: https://github.com/MicroTrendsLtd/NinjaTrader8/
-//Version: 2020.11.13.5
+//Version: 8
 //History: See gitHub history
 
 
@@ -641,7 +645,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
 
                 //add this bit to take care of caveats and problems over submitorder returning slowly missing the order ref or the order ref chaning due to realtime transition
-                if (order.OrderState == OrderState.Submitted || order.OrderState == OrderState.Accepted)
+                if (order.OrderState == OrderState.Submitted || order.OrderState == OrderState.Accepted || order.OrderState == OrderState.Working)
                 {
 
                     if ((order.Name == orderEntryName) || order.Name.Contains(entry1NameLong) || order.Name.Contains(entry1NameShort))
@@ -1148,18 +1152,15 @@ namespace NinjaTrader.NinjaScript.Strategies
         #endregion
         #region methods
         #region NotifyPropertyChanged
-        //public void NotifyPropertyChanged()
-        //{
-        //    NotifyPropertyChanged(string.Empty);
-        //}
-
-        //public void NotifyPropertyChanged(String info)
-        //{
-        //    if (PropertyChanged != null)
-        //    {
-        //        PropertyChanged(this, new PropertyChangedEventArgs(info.Replace("P_", "")));
-        //    }
-        //}
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected void NotifyPropertyChanged([CallerMemberName] string name = null)
+        {
+            var handler = PropertyChanged;
+            if (handler != null)
+            {
+                handler(this, new PropertyChangedEventArgs(name));
+            }
+        }
         #endregion
         #region timers
 
@@ -3142,15 +3143,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 
 
-        public event PropertyChangedEventHandler PropertyChanged;
-        protected void NotifyPropertyChanged([CallerMemberName] string name = null)
-        {
-            var handler = PropertyChanged;
-            if (handler != null)
-            {
-                handler(this, new PropertyChangedEventArgs(name));
-            }
-        }
+      
 
 
         #endregion
