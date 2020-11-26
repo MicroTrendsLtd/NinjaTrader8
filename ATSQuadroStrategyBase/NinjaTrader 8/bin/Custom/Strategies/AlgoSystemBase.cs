@@ -505,11 +505,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         if (Position.MarketPosition != MarketPosition.Flat)
                         {
                             ATSAlgoSystemState = AlgoSystemState.HisTradeRT;
-                            if (IsFlattenOnTransition)
-                            {
-                                CancelAllOrders();
-                                Flatten();
-                            }
+                           
                         }
 
 
@@ -517,7 +513,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     case State.Realtime:
 
                         if (ATSAlgoSystemState == AlgoSystemState.Transition)
-                            ATSAlgoSystemState = AlgoSystemState.Realtime;
+                         ATSAlgoSystemState = AlgoSystemState.Realtime;
 
                         // one time only, as we transition from historical to real-time - doesnt seem to work  for unmanaged mode
                         // the work around was to use order names and reference them OnOrderUpdate
@@ -583,6 +579,15 @@ namespace NinjaTrader.NinjaScript.Strategies
                             Order order = GetRealtimeOrder(orderTarget4);
                             if (order != null) orderTarget4 = order;
                         }
+
+                        if (ATSAlgoSystemState == AlgoSystemState.HisTradeRT && IsFlattenOnTransition)
+                        {
+                            Account.CancelAllOrders(this.Instrument);
+                            CancelAllOrders();
+                            TradeWorkFlowTradeExit();
+                            
+                        }
+
 
 
                         AskPrice = GetCurrentAsk(0);
@@ -1455,8 +1460,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                 CancelOrder(orderTarget4);
                 CancelOrder(orderEntry);
 
-                return;
             }
+
+            //let this execute in case of orphaned orders not listed above
 
             Account.CancelAllOrders(this.Instrument);
             OrdersActive.Clear();
@@ -3721,12 +3727,16 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsSubmitTargetsAndConfirm", Description = "Confirm Target Placement or skip")]
         public bool IsSubmitTargetsAndConfirm { get; set; }
 
+
+
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Visuals - ShowOrderLabels", Description = "Show Entry Order Labels on chart")]
         public bool IsShowOrderLabels
         {
             get { return showOrderLabels; }
             set { showOrderLabels = value; }
         }
+
+
 
 
         #region Non browsable
@@ -3835,6 +3845,8 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Browsable(false)]
         [XmlIgnore()]
         public MarketDataEventArgs MarketDataUpdate { get; private set; }
+        
+
 
 
         #endregion
