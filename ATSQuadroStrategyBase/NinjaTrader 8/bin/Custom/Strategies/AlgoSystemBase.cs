@@ -505,7 +505,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         if (Position.MarketPosition != MarketPosition.Flat)
                         {
                             ATSAlgoSystemState = AlgoSystemState.HisTradeRT;
-                           
+
                         }
 
 
@@ -513,7 +513,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     case State.Realtime:
 
                         if (ATSAlgoSystemState == AlgoSystemState.Transition)
-                         ATSAlgoSystemState = AlgoSystemState.Realtime;
+                            ATSAlgoSystemState = AlgoSystemState.Realtime;
 
                         // one time only, as we transition from historical to real-time - doesnt seem to work  for unmanaged mode
                         // the work around was to use order names and reference them OnOrderUpdate
@@ -585,7 +585,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                             Account.CancelAllOrders(this.Instrument);
                             CancelAllOrders();
                             TradeWorkFlowTradeExit();
-                            
+
                         }
 
 
@@ -779,9 +779,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Print("OnOrderUpdate(" + order.Name + " OrderId=" + order.OrderId + " State=" + order.OrderState.ToString() + ")");
 
 
-            if (IsHistorical)
-                return;
-
+            if (IsHistorical) return;
 
             if (State == State.Realtime && ATSAlgoSystemState == AlgoSystemState.HisTradeRT && !order.IsBacktestOrder)
             {
@@ -826,7 +824,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                 }
 
-                if (Account.Connection == Connection.PlaybackConnection) return;
+                if (IsPlayBack) return;
 
                 lock (onOrderUpdateLockObject)
                 {
@@ -835,34 +833,20 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                     #region OrdersRT
 
-                    if (order.OrderState == OrderState.Submitted || order.OrderState == OrderState.Accepted)
+                    if (IsRealtime)
                     {
-                        if (!OrdersActive.Contains(order))
-                            OrdersActive.Add(order);
+                        if (order.OrderState == OrderState.Submitted || order.OrderState == OrderState.Accepted)
+                        {
+                            if (!OrdersActive.Contains(order))
+                                OrdersActive.Add(order);
+                        }
+                        else if (!OrderIsActive(order))
+                        {
+                            OrdersActive.Remove(order);
+                        }
+
                     }
-                    else if (!OrderIsActive(order))
-                    {
-                        OrdersActive.Remove(order);
-                    }
-
-
-
-                    //if (orderEntry == order
-                    //    || orderStop1 == order || orderStop2 == order || orderStop3 == order || orderStop4 == order
-                    //    || orderTarget1 == order || orderTarget2 == order || orderTarget3 == order || orderTarget4 == order
-                    //    )
-                    //{
-                    //    if (order.OrderState == OrderState.Submitted || order.OrderState == OrderState.Accepted)
-                    //    {
-                    //        if (!OrdersActive.Contains(order))
-                    //            OrdersActive.Add(order);
-                    //    }
-                    //    else if (!OrderIsActive(order))
-                    //    {
-                    //        OrdersActive.Remove(order);
-                    //    }
-
-                    //}
+                
                     #endregion
 
 
@@ -894,8 +878,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                             break;
                         case OrderState.Submitted:
 
-                            //if (showOrderLabels)
-                            //    DrawText(order.Name, order.Name, 0, order.AverageFillPrice != 0 ? order.AverageFillPrice : order.StopPrice != 0 ? order.StopPrice : order.LimitPrice != 0 ? order.LimitPrice : GetCurrentAsk(), Color.Black);
+                            if (IsShowOrderLabels)
+                                Draw.Text(this,order.Name, order.Name, 0, order.AverageFillPrice != 0 ? order.AverageFillPrice : order.StopPrice != 0 ? order.StopPrice : order.LimitPrice != 0 ? order.LimitPrice : GetCurrentAsk());
 
                             if (order == orderEntry)
                             {
@@ -1864,6 +1848,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         {
                             orderEntryPrior = orderEntry;
                             orderEntry = SubmitLongTrade();
+                            return ProcessWorkFlow(StrategyTradeWorkFlowState.GoLongSubmitOrderPending);
                         }
                         else
                         {
@@ -2153,6 +2138,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         {
                             orderEntryPrior = orderEntry;
                             orderEntry = SubmitShortTrade();
+                            return ProcessWorkFlow(StrategyTradeWorkFlowState.GoShortSubmitOrderPending);
                         }
                         else
                         {
@@ -2203,6 +2189,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                     if (tradeWorkFlowRetryCount > tradeWorkFlowRetryAlarm)
                         return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
 
+                    break;
+                case StrategyTradeWorkFlowState.GoShortSubmitOrderWorking:
                     break;
                 case StrategyTradeWorkFlowState.GoShortSubmitOrderFilled:
                     TradeWorkFlowOnMarketDataDisable();
@@ -3818,7 +3806,11 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         [Browsable(false)]
         [XmlIgnore()]
-        public bool IsHistorical { get { return State == State.Historical; } }
+        public bool IsHistorical { get { return State == State.Historical || ATSAlgoSystemState == AlgoSystemState.HisTradeRT; } }
+
+        [Browsable(false)]
+        [XmlIgnore()]
+        public bool IsRealtime { get { return ATSAlgoSystemState == AlgoSystemState.Realtime; } }
 
         [Browsable(false)]
         [XmlIgnore()]
@@ -3845,7 +3837,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Browsable(false)]
         [XmlIgnore()]
         public MarketDataEventArgs MarketDataUpdate { get; private set; }
-        
+
 
 
 
