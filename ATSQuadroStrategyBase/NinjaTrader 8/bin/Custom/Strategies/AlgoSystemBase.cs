@@ -3712,7 +3712,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         public bool IsStrategyUnSafeMode { get; set; }
 
 
-        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - RealtimeTradingOnly", Description = "Realtime Trading Flatten all historical positions and cancel orders - to prevent caveats caused by historical trades becoming realtime and to prevent the need to wait for a historical trade postion to close in realtime prior to realtime trading")]
+        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsFlattenOnTransition", Description = "Realtime Trading Flatten all historical positions and cancel orders - to prevent caveats caused by historical trades becoming realtime and to prevent the need to wait for a historical trade postion to close in realtime prior to realtime trading")]
         public bool IsFlattenOnTransition { get; set; }
 
 
