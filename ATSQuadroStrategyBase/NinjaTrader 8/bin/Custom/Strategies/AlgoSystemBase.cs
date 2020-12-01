@@ -10,9 +10,13 @@
 //Algo Trading Systems (ATS) reserves the right to modify or overwrite this NinjaScript component with each release without notice.
 //Legal Forum: In using this product you agree to the terms and NYC Jurisdiction
 //Developer: Tom Leeson of MicroTrends LTd www.microtrends.pro
+//GIT: https://github.com/MicroTrendsLtd/NinjaTrader8/
+//Suport: support@microtrends.pro or via GIT
+//Bugs: please report at GIT
+//Collaboration: All welcome at GIT
+//Updates: Visit GIT open source project code for the latest.
 //About: ATSQuadroStrategyBase is a NinjaTrader 8 Strategy unmanaged mode trade engine base foundation for futures, comprising of 4 Bracket capacity, all In scale out non position compounding,  prevents overfills and builds on functionality provided by the Managed approach for NinjaTrader Strategies. 
-//Updates: Visit www.microtrends.pro for updates and GIT open source project code latest: https://github.com/MicroTrendsLtd/NinjaTrader8/
-//Version: 2020.11.13.5
+//Version: 8
 //History: See gitHub history
 
 
@@ -270,6 +274,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         //OCOBreakout simulated entry orders when triggering set entryOrder to catch the execution etc
         private double lastPrice;
         private DateTime onMarketDataTimeNextAllowed;
+        private DateTime onMarketDataBidTimeNextAllowed;
         private readonly object onOrderUpdateLockObject = new object();
 
 
@@ -402,6 +407,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         public ATSQuadroStrategyBase()
         {
             TradeSignalExpiryInterval = 3;
+            IsFlattenOnTransition = true;
 
         }
 
@@ -452,14 +458,27 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                         if (Account.Name == Account.BackTestAccountName)
                             ATSAlgoSystemMode = AlgoSystemMode.Test;
-                        else if (Account.Name == Account.SimulationAccountName)
-                            ATSAlgoSystemMode = AlgoSystemMode.Sim;
                         else if (Account.Name == Account.PlaybackAccountName)
+                        {
                             ATSAlgoSystemMode = AlgoSystemMode.Replay;
 
+                        }
+                        else
+                        {
+                            if (Account.Connection == null)
+                            {
+                                ATSAlgoSystemMode = AlgoSystemMode.Sim;
+                            }
+                            else
+                            {
+                                if (Account.Connection.Options.Mode == Mode.Simulation)
+                                    ATSAlgoSystemMode = AlgoSystemMode.Sim;
+                                else
+                                    ATSAlgoSystemMode = AlgoSystemMode.Live;
+                            }
+                        }
                         ATSAlgoSystemState = AlgoSystemState.DataLoaded;
-                        
-                       InstrumentFullName = this.Instrument.FullName;
+                        InstrumentFullName = this.Instrument.FullName;
 
                         break;
                     case State.Historical:
@@ -469,7 +488,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         break;
                     case State.Transition:
 
-                        if (ATSAlgoSystemMode == AlgoSystemMode.UnKnown)
+                        if (ATSAlgoSystemMode == AlgoSystemMode.UnKnown && Account.Connection != null)
                         {
                             if (Account.Connection.Options.Mode == Mode.Live && !string.IsNullOrEmpty(Account.Fcm))
                             {
@@ -484,7 +503,10 @@ namespace NinjaTrader.NinjaScript.Strategies
                         //validate test to the state to realtime with historical orders
                         //NT8 can be realtime state yet historical orders exist...
                         if (Position.MarketPosition != MarketPosition.Flat)
+                        {
                             ATSAlgoSystemState = AlgoSystemState.HisTradeRT;
+
+                        }
 
 
                         break;
@@ -558,6 +580,15 @@ namespace NinjaTrader.NinjaScript.Strategies
                             if (order != null) orderTarget4 = order;
                         }
 
+                        if (ATSAlgoSystemState == AlgoSystemState.HisTradeRT && IsFlattenOnTransition)
+                        {
+                            Account.CancelAllOrders(this.Instrument);
+                            CancelAllOrders();
+                            TradeWorkFlowTradeExit();
+
+                        }
+
+
 
                         AskPrice = GetCurrentAsk(0);
                         BidPrice = GetCurrentBid(0);
@@ -615,6 +646,131 @@ namespace NinjaTrader.NinjaScript.Strategies
             accountDenomination = account.Denomination;
         }
 
+
+
+        protected override void OnBarUpdate()
+        {
+            //historical playback not supported,  test for realtimeOnly trading
+            if ((State == State.Historical && (IsRealtimeTradingOnly || IsPlayBack)) || CurrentBar < 1)
+                return;
+
+            lastPrice = Closes[0][0];
+
+            if (IsFirstTickOfBar)
+            {
+                if (Bars.IsFirstBarOfSessionByIndex(0))
+                {
+                    if (IsExitOnSessionCloseStrategy)
+                    {
+                        OnExitOnCloseDetected();
+                    }
+                }
+            }
+
+            if (AlgoSignalAction == AlgoSignalAction.None)
+            {
+                //belt and braces check
+                if (State != State.Historical && TradeWorkFlow == StrategyTradeWorkFlowState.ErrorFlattenAll && TradeWorkFlowLastChanged < DateTime.Now.AddSeconds(3))
+                    ProcessWorkFlow();
+
+                return;
+            }
+
+
+            //if execution context reaches here process signal
+
+
+            //historical mode
+            if (State == State.Historical)
+            {
+                //Assumes all is perfect and forces action regardless of workflow state
+                switch (AlgoSignalAction)
+                {
+                    case AlgoSignalAction.GoLong:
+                        TradeWorkFlowNewOrder(StrategyTradeWorkFlowState.GoLong);
+                        break;
+                    case AlgoSignalAction.GoShort:
+                        TradeWorkFlowNewOrder(StrategyTradeWorkFlowState.GoShort);
+                        break;
+                    case AlgoSignalAction.ExitTrade:
+                        TradeWorkFlowTradeExit();
+                        break;
+                    case AlgoSignalAction.ExitTradeLong:
+                        TradeWorkFlowTradeExitLong();
+                        break;
+                    case AlgoSignalAction.ExitTradeShort:
+                        TradeWorkFlowTradeExitShort();
+                        break;
+                }
+                //Reset to avoid duplicate action
+                AlgoSignalAction = AlgoSignalAction.None;
+                return;
+            }
+            //Realtime process with no signal queue
+            else if (!IsRealtimeTradingUseQueue)
+            {
+                bool isActionProcessed = false;
+                //realtime mode assumes all is not perfect and will all the queue of any AlgoSignalAction if not validated
+                switch (AlgoSignalAction)
+                {
+                    case AlgoSignalAction.GoLong:
+                        if (this.IsTradeWorkFlowCanGoLong())
+                        {
+                            isActionProcessed = true;
+                            TradeWorkFlowNewOrder(StrategyTradeWorkFlowState.GoLong);
+                        }
+                        break;
+                    case AlgoSignalAction.GoShort:
+                        if (this.IsTradeWorkFlowCanGoShort())
+                        {
+                            isActionProcessed = true;
+                            TradeWorkFlowNewOrder(StrategyTradeWorkFlowState.GoShort);
+                        }
+                        break;
+                    case AlgoSignalAction.ExitTrade:
+                        if (this.IsTradeWorkFlowCanExit())
+                        {
+                            isActionProcessed = true;
+                            TradeWorkFlowTradeExit();
+                        }
+                        break;
+                    case AlgoSignalAction.ExitTradeLong:
+                        if (this.IsTradeWorkFlowCanExit())
+                        {
+                            isActionProcessed = true;
+                            TradeWorkFlowTradeExitLong();
+                        }
+                        break;
+                    case AlgoSignalAction.ExitTradeShort:
+                        if (this.IsTradeWorkFlowCanExit())
+                        {
+                            isActionProcessed = true;
+                            TradeWorkFlowTradeExitShort();
+                        }
+                        break;
+                }
+                if (isActionProcessed)
+                {
+                    //Reset to avoid duplicate action
+                    AlgoSignalAction = AlgoSignalAction.None;
+                    return;
+                }
+            }
+            //if execution context reaches here use q IsRealtimeTradingUseQueue or !isActionProcessed, add signAction to q
+            TEQ.Enqueue(new AlgoSignalActionMsq(AlgoSignalAction, Account.Connection.Now, "Auto Signal " + AlgoSignalAction));
+
+            //Reset to avoid duplicate action
+            AlgoSignalAction = AlgoSignalAction.None;
+
+            //if q from now or prior is set process
+            if (TEQ.Count > 0)
+                ProcessTradeEventQueue();
+            //belt and braces
+            else if (TradeWorkFlow == StrategyTradeWorkFlowState.ErrorFlattenAll && TradeWorkFlowLastChanged < DateTime.Now.AddSeconds(3))
+                ProcessWorkFlow();
+        }
+
+
         protected override void OnOrderUpdate(Order order, double limitPrice, double stopPrice, int quantity, int filled, double averageFillPrice, OrderState orderState, DateTime time, ErrorCode error, string comment)
         {
             if (order == null) return;
@@ -623,9 +779,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Print("OnOrderUpdate(" + order.Name + " OrderId=" + order.OrderId + " State=" + order.OrderState.ToString() + ")");
 
 
-            if (IsHistorical)
-                return;
-
+            if (IsHistorical) return;
 
             if (State == State.Realtime && ATSAlgoSystemState == AlgoSystemState.HisTradeRT && !order.IsBacktestOrder)
             {
@@ -641,7 +795,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
 
                 //add this bit to take care of caveats and problems over submitorder returning slowly missing the order ref or the order ref chaning due to realtime transition
-                if (order.OrderState == OrderState.Submitted || order.OrderState == OrderState.Accepted)
+                if (order.OrderState == OrderState.Submitted || order.OrderState == OrderState.Accepted || order.OrderState == OrderState.Working)
                 {
 
                     if ((order.Name == orderEntryName) || order.Name.Contains(entry1NameLong) || order.Name.Contains(entry1NameShort))
@@ -670,7 +824,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                 }
 
-                if (Account.Connection == Connection.PlaybackConnection) return;
+                if (IsPlayBack) return;
 
                 lock (onOrderUpdateLockObject)
                 {
@@ -679,34 +833,20 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                     #region OrdersRT
 
-                    if (order.OrderState == OrderState.Submitted || order.OrderState == OrderState.Accepted)
+                    if (IsRealtime)
                     {
-                        if (!OrdersActive.Contains(order))
-                            OrdersActive.Add(order);
+                        if (order.OrderState == OrderState.Submitted || order.OrderState == OrderState.Accepted)
+                        {
+                            if (!OrdersActive.Contains(order))
+                                OrdersActive.Add(order);
+                        }
+                        else if (!OrderIsActive(order))
+                        {
+                            OrdersActive.Remove(order);
+                        }
+
                     }
-                    else if (!OrderIsActive(order))
-                    {
-                        OrdersActive.Remove(order);
-                    }
-
-
-
-                    //if (orderEntry == order
-                    //    || orderStop1 == order || orderStop2 == order || orderStop3 == order || orderStop4 == order
-                    //    || orderTarget1 == order || orderTarget2 == order || orderTarget3 == order || orderTarget4 == order
-                    //    )
-                    //{
-                    //    if (order.OrderState == OrderState.Submitted || order.OrderState == OrderState.Accepted)
-                    //    {
-                    //        if (!OrdersActive.Contains(order))
-                    //            OrdersActive.Add(order);
-                    //    }
-                    //    else if (!OrderIsActive(order))
-                    //    {
-                    //        OrdersActive.Remove(order);
-                    //    }
-
-                    //}
+                
                     #endregion
 
 
@@ -738,8 +878,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                             break;
                         case OrderState.Submitted:
 
-                            //if (showOrderLabels)
-                            //    DrawText(order.Name, order.Name, 0, order.AverageFillPrice != 0 ? order.AverageFillPrice : order.StopPrice != 0 ? order.StopPrice : order.LimitPrice != 0 ? order.LimitPrice : GetCurrentAsk(), Color.Black);
+                            if (IsShowOrderLabels)
+                                Draw.Text(this,order.Name, order.Name, 0, order.AverageFillPrice != 0 ? order.AverageFillPrice : order.StopPrice != 0 ? order.StopPrice : order.LimitPrice != 0 ? order.LimitPrice : GetCurrentAsk());
 
                             if (order == orderEntry)
                             {
@@ -996,11 +1136,10 @@ namespace NinjaTrader.NinjaScript.Strategies
         protected override void OnMarketData(MarketDataEventArgs marketDataUpdate)
         {
 
-            if (DateTime.Now < onMarketDataTimeNextAllowed) return;
-
             if (marketDataUpdate.MarketDataType == MarketDataType.Bid || marketDataUpdate.MarketDataType == MarketDataType.Ask)
             {
-                onMarketDataTimeNextAllowed = DateTime.Now.AddMilliseconds(250);
+                if (DateTime.Now < onMarketDataBidTimeNextAllowed) return;
+                onMarketDataBidTimeNextAllowed = DateTime.Now.AddMilliseconds(250);
                 AskPrice = marketDataUpdate.Ask;
                 BidPrice = marketDataUpdate.Bid;
                 return;
@@ -1008,23 +1147,32 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             if (marketDataUpdate.MarketDataType != MarketDataType.Last) return;
             this.MarketDataUpdate = marketDataUpdate;
-
-            if (!IsTradeWorkFlowReady() && TradeWorkFlowLastChanged < DateTime.Now.AddSeconds(-1 * TradeWorkFlowTimeOut))
-            {
-
-                if (tracing)
-                    Print("OnMarketData >> TWF ErrorTimeOut");
-
-                TradeWorkFlow = StrategyTradeWorkFlowState.ErrorTimeOut;
-                ProcessWorkFlow(StrategyTradeWorkFlowState.ErrorTimeOut);
-
-            }
-
-
             if (this.LastPrice == marketDataUpdate.Price) return;
             LastPrice = marketDataUpdate.Price;
 
+
+            if (DateTime.Now < onMarketDataTimeNextAllowed) return;
             onMarketDataTimeNextAllowed = DateTime.Now.AddSeconds(1);
+
+            if (Position.MarketPosition == MarketPosition.Flat)
+            {
+                PositionInfo = string.Format("{0}", Position.MarketPosition.ToString());
+                PositionState = 0;
+                UnRealizedPL = 0;
+            }
+            else
+            {
+                PositionInfo = string.Format("{0} {1} @ {2}", Position.MarketPosition.ToString().Substring(0, 1), Position.Quantity, Position.AveragePrice);
+
+                if (Position.MarketPosition == MarketPosition.Long)
+                    PositionState = 1;
+                else
+                    PositionState = -1;
+
+                UnRealizedPL = Position.GetUnrealizedProfitLoss(PerformanceUnit.Currency);
+            }
+
+
 
             if (this.inOnMarketData) return;
             lock (this.inOnMarketDataLock)
@@ -1033,32 +1181,36 @@ namespace NinjaTrader.NinjaScript.Strategies
                 this.inOnMarketData = true;
             }
 
+
             try
             {
 
-
-                if (Position.MarketPosition == MarketPosition.Flat)
+                //unjam StrategyTradeWorkFlowState in case its stuck
+                if (!IsTradeWorkFlowReady() && TradeWorkFlowLastChanged < DateTime.Now.AddSeconds(-1 * TradeWorkFlowTimeOut))
                 {
-                    PositionInfo = string.Format("{0}", Position.MarketPosition.ToString());
-                    PositionState = 0;
-                    UnRealizedPL = 0;
-                }
-                else
-                {
-                    PositionInfo = string.Format("{0} {1} @ {2}", Position.MarketPosition.ToString().Substring(0, 1), Position.Quantity, Position.AveragePrice);
+                    if (tracing)
+                        Print("OnMarketData >> TWF ErrorTimeOut");
 
-                    if (Position.MarketPosition == MarketPosition.Long)
-                        PositionState = 1;
-                    else
-                        PositionState = -1;
-
-                    UnRealizedPL = Position.GetUnrealizedProfitLoss(PerformanceUnit.Currency);
+                    TradeWorkFlow = StrategyTradeWorkFlowState.ErrorTimeOut;
+                    ProcessWorkFlow(StrategyTradeWorkFlowState.ErrorTimeOut);
+                    this.inOnMarketData = false;
+                    return;
                 }
+
 
                 if (ATSAlgoSystemState != AlgoSystemState.Realtime)
                 {
                     this.inOnMarketData = false;
                     return;
+                }
+
+                //process the trade workflow state engine - move state on in case its holding up signals execution
+                if (IsTradeWorkFlowOnMarketData && Now >= tradeWorkFlowNextTimeValid)
+                {
+                    tradeWorkFlowNextTimeValid = Now.AddMilliseconds(TradeWorkFlowTimerInterval);
+                    if (tracing)
+                        Print("OnMarketData >> TWF");
+                    ProcessWorkFlow();
                 }
 
                 //process the signal q
@@ -1078,15 +1230,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                 }
 
 
-                //process the trade workflow state engine
-                if (IsTradeWorkFlowOnMarketData && Now >= tradeWorkFlowNextTimeValid)
-                {
-
-                    tradeWorkFlowNextTimeValid = Now.AddMilliseconds(TradeWorkFlowTimerInterval);
-                    if (tracing)
-                        Print("OnMarketData >> TWF");
-                    ProcessWorkFlow();
-                }
             }
             catch (Exception ex)
             {
@@ -1100,37 +1243,6 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
 
 
-        protected override void OnBarUpdate()
-        {
-
-            if ((State == State.Historical && (IsRealtimeTradingOnly || IsPlayBack)) || CurrentBar < 1)
-                return;
-
-            lastPrice = Closes[0][0];
-
-            if (IsFirstTickOfBar)
-            {
-                if (Bars.IsFirstBarOfSessionByIndex(0))
-                {
-                    if (IsExitOnSessionCloseStrategy)
-                    {
-                        OnExitOnCloseDetected();
-                    }
-                }
-            }
-
-            if (AlgoSignalAction != AlgoSignalAction.None)
-                TEQ.Enqueue(new AlgoSignalActionMsq(AlgoSignalAction, Account.Connection.Now, "Auto Signal " + AlgoSignalAction));
-
-            //Reset to avoid duplicate action
-            AlgoSignalAction = AlgoSignalAction.None;
-
-            if (!IsRealtimeTradingUseQueue && TEQ.Count > 0)
-                ProcessTradeEventQueue();
-            else if (TradeWorkFlow == StrategyTradeWorkFlowState.ErrorFlattenAll && TradeWorkFlowLastChanged < DateTime.Now.AddSeconds(3))//belt and braces
-                ProcessWorkFlow();
-
-        }
 
         /// <summary>
         /// OnStrategyTradeWorkFlowUpdated
@@ -1148,18 +1260,15 @@ namespace NinjaTrader.NinjaScript.Strategies
         #endregion
         #region methods
         #region NotifyPropertyChanged
-        //public void NotifyPropertyChanged()
-        //{
-        //    NotifyPropertyChanged(string.Empty);
-        //}
-
-        //public void NotifyPropertyChanged(String info)
-        //{
-        //    if (PropertyChanged != null)
-        //    {
-        //        PropertyChanged(this, new PropertyChangedEventArgs(info.Replace("P_", "")));
-        //    }
-        //}
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected void NotifyPropertyChanged([CallerMemberName] string name = null)
+        {
+            var handler = PropertyChanged;
+            if (handler != null)
+            {
+                handler(this, new PropertyChangedEventArgs(name));
+            }
+        }
         #endregion
         #region timers
 
@@ -1335,8 +1444,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                 CancelOrder(orderTarget4);
                 CancelOrder(orderEntry);
 
-                return;
             }
+
+            //let this execute in case of orphaned orders not listed above
 
             Account.CancelAllOrders(this.Instrument);
             OrdersActive.Clear();
@@ -1738,6 +1848,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         {
                             orderEntryPrior = orderEntry;
                             orderEntry = SubmitLongTrade();
+                            return ProcessWorkFlow(StrategyTradeWorkFlowState.GoLongSubmitOrderPending);
                         }
                         else
                         {
@@ -2027,6 +2138,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         {
                             orderEntryPrior = orderEntry;
                             orderEntry = SubmitShortTrade();
+                            return ProcessWorkFlow(StrategyTradeWorkFlowState.GoShortSubmitOrderPending);
                         }
                         else
                         {
@@ -2077,6 +2189,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                     if (tradeWorkFlowRetryCount > tradeWorkFlowRetryAlarm)
                         return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
 
+                    break;
+                case StrategyTradeWorkFlowState.GoShortSubmitOrderWorking:
                     break;
                 case StrategyTradeWorkFlowState.GoShortSubmitOrderFilled:
                     TradeWorkFlowOnMarketDataDisable();
@@ -2798,7 +2912,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             try
             {
                 if (orders == null || orders.Count() == 0) return false;
-                return orders.Count(o => o!=null && o.OrderState == OrderState.Accepted || o.OrderState == OrderState.Working || o.OrderState == OrderState.PartFilled || o.OrderState == OrderState.Filled) == orders.Count(o => o != null);
+                return orders.Count(o => o != null && o.OrderState == OrderState.Accepted || o.OrderState == OrderState.Working || o.OrderState == OrderState.PartFilled || o.OrderState == OrderState.Filled) == orders.Count(o => o != null);
             }
             catch
             {
@@ -3142,15 +3256,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 
 
-        public event PropertyChangedEventHandler PropertyChanged;
-        protected void NotifyPropertyChanged([CallerMemberName] string name = null)
-        {
-            var handler = PropertyChanged;
-            if (handler != null)
-            {
-                handler(this, new PropertyChangedEventArgs(name));
-            }
-        }
+
 
 
         #endregion
@@ -3594,6 +3700,8 @@ namespace NinjaTrader.NinjaScript.Strategies
         public bool IsStrategyUnSafeMode { get; set; }
 
 
+        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsFlattenOnTransition", Description = "Realtime Trading Flatten all historical positions and cancel orders - to prevent caveats caused by historical trades becoming realtime and to prevent the need to wait for a historical trade postion to close in realtime prior to realtime trading")]
+        public bool IsFlattenOnTransition { get; set; }
 
 
 
@@ -3698,7 +3806,11 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         [Browsable(false)]
         [XmlIgnore()]
-        public bool IsHistorical { get { return State == State.Historical; } }
+        public bool IsHistorical { get { return State == State.Historical || ATSAlgoSystemState == AlgoSystemState.HisTradeRT; } }
+
+        [Browsable(false)]
+        [XmlIgnore()]
+        public bool IsRealtime { get { return ATSAlgoSystemState == AlgoSystemState.Realtime; } }
 
         [Browsable(false)]
         [XmlIgnore()]
@@ -3707,12 +3819,26 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         [Browsable(false)]
         [XmlIgnore()]
-        public bool IsPlayBack { get { return Account.Connection == Connection.PlaybackConnection; } }
+        public bool IsPlayBack { get { return ATSAlgoSystemMode == AlgoSystemMode.Replay; } }
+
+        [Browsable(false)]
+        [XmlIgnore()]
+        public bool IsBackTest { get { return ATSAlgoSystemMode == AlgoSystemMode.Test; } }
+
+        [Browsable(false)]
+        [XmlIgnore()]
+        public bool IsSimMode { get { return ATSAlgoSystemMode == AlgoSystemMode.Sim; } }
+
+        [Browsable(false)]
+        [XmlIgnore()]
+        public bool IsLiveMode { get { return ATSAlgoSystemMode == AlgoSystemMode.Live; } }
 
 
         [Browsable(false)]
         [XmlIgnore()]
         public MarketDataEventArgs MarketDataUpdate { get; private set; }
+
+
 
 
         #endregion
