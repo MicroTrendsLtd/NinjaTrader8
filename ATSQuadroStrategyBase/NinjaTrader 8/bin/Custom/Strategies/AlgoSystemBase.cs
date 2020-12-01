@@ -18,6 +18,7 @@
 //About: ATSQuadroStrategyBase is a NinjaTrader 8 Strategy unmanaged mode trade engine base foundation for futures, comprising of 4 Bracket capacity, all In scale out non position compounding,  prevents overfills and builds on functionality provided by the Managed approach for NinjaTrader Strategies. 
 //Version: 8
 //History: See gitHub history
+//GitHub Collaborators: jmscraig
 
 
 #region Using declarations
