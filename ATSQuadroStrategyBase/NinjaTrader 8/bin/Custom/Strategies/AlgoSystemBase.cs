@@ -11,7 +11,7 @@
 //Legal Forum: In using this product you agree to the terms and NYC Jurisdiction
 //Developer: Tom Leeson of MicroTrends LTd www.microtrends.pro
 //GIT: https://github.com/MicroTrendsLtd/NinjaTrader8/
-//Suport: support@microtrends.pro or via GIT
+//Suport: support@microtrends.co or via GIT
 //Bugs: please report at GIT
 //Collaboration: All welcome at GIT
 //Updates: Visit GIT open source project code for the latest.
