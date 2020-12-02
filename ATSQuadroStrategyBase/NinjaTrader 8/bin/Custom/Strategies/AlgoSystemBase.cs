@@ -263,6 +263,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         public static void OpenTraceFile()
         {
+          
             if (File.Exists(Default.Tracing.LogFileName)) System.Diagnostics.Process.Start(Default.Tracing.LogFileName);
 
         }
@@ -2750,7 +2751,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                     else
                     {
-                        if (tracing)
+                        if (tracing && IsTracingOpenFileOnError)
                             DebugTraceHelper.OpenTraceFile();
 
                         if (connectionStatusOrder == ConnectionStatus.Connected)
@@ -3839,6 +3840,9 @@ namespace NinjaTrader.NinjaScript.Strategies
             get;set;
         }
 
+        [Display(GroupName = "Zystem Params", Order = 0, Name = "IsTracingOpenFileOnError", Description = "IsTracingOpenFileOnError")]
+        public bool IsTracingOpenFileOnError { get; set; }
+
 
 
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - Strategy Realtime Trading Use Queue", Description = "Realtime Trading Use Queued Signals: True/False - When using small timeseries or every tick this can smooth out performance as signals are queued and the last in is executed others are purged")]
@@ -3901,6 +3905,8 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsStrategyUnSafeMode", Description = "WARNING do not use this!!! IsStrategyUnSafeMode allows faster operation for scalping and less latency on entry - however this mode is only for very competent experienced traders as this can result in oder fills and unexpected position fills and order balances... Always keep this off unless you fully understand the risks are yours, and you are an experienced trader in attendance and plan to interact and control any order issues, positions which might result in unsafe mode due to fast market reversal and other anomalies")]
         public bool IsStrategyUnSafeMode { get; set; }
 
+       
+
 
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsFlattenOnTransition", Description = "Realtime Trading Flatten all historical positions and cancel orders - to prevent caveats caused by historical trades becoming realtime and to prevent the need to wait for a historical trade postion to close in realtime prior to realtime trading")]
         public bool IsFlattenOnTransition { get; set; }
@@ -3927,6 +3933,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
 
 
+      
 
 
         #region Non browsable
@@ -4042,6 +4049,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Browsable(false)]
         [XmlIgnore()]
         public MarketDataEventArgs MarketDataUpdate { get; private set; }
+     
 
 
 
