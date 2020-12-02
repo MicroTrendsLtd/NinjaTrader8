@@ -14,5 +14,5 @@ using System.Runtime.InteropServices;
 [assembly: CLSCompliant(false)]
 [assembly: ComVisible(false)]
 [assembly: NeutralResourcesLanguage("en", UltimateResourceFallbackLocation.MainAssembly)]
-[assembly: AssemblyVersion("2020.11.25.1")]
-[assembly: AssemblyFileVersion("2020.11.25.1")]
+[assembly: AssemblyVersion("2020.12.2.25")]
+[assembly: AssemblyFileVersion("2020.12.2.25")]
