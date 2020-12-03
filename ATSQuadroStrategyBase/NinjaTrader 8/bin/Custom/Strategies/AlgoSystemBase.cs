@@ -662,8 +662,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 string errorMsg = string.Format("OnStateChange {0}", ex.ToString());
                 Debug.Print(errorMsg);
-                if (tracing)
-                    DebugTraceHelper.WriteLine(errorMsg);
+                Print(errorMsg);
                 Log(errorMsg, LogLevel.Error);
             }
         }
@@ -820,7 +819,20 @@ namespace NinjaTrader.NinjaScript.Strategies
                         AlgoSignalAction = AlgoSignalAction.None;
                         return;
                     }
-                    if (!IsUseSignalQFallbackForSignals) return;
+                    //if here then no action take discard or store signal in q
+                    if (IsUseSignalQFallbackForSignals)
+                    {
+                        lock (TEQ)
+                        {
+                            //if execution context reaches here use q IsRealtimeTradingUseQueue or !isActionProcessed, add signAction to q
+                            TEQ.Enqueue(new AlgoSignalActionMsq(AlgoSignalAction, Account.Connection.Now, "Auto Signal " + AlgoSignalAction));
+                        }
+                        //Reset to avoid duplicate action
+                        AlgoSignalAction = AlgoSignalAction.None;
+
+                        TEQOnMarketDataEnable();
+                        return;
+                    }
                 }
                 lock (TEQ)
                 {
@@ -831,6 +843,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 //Reset to avoid duplicate action
                 AlgoSignalAction = AlgoSignalAction.None;
 
+                // try q straigh away
                 ProcessTradeEventQueue();
             }
             catch (Exception ex)
@@ -1325,12 +1338,16 @@ namespace NinjaTrader.NinjaScript.Strategies
                         Print("OnMarketData >> TEQ");
 
 
-                    if (TEQ.Count > 0)
-                    {
+                    bool isTEQPopulated = false;
+                    lock (TEQ)
+                        isTEQPopulated = TEQ.Count > 0;
+
+                    if (isTEQPopulated)
                         ProcessTradeEventQueue();
-                        this.inOnMarketData = false;
-                        return;
-                    }
+                    else if (!IsRealtimeTradingUseQueue) TEQOnMarketDataDisable();
+
+
+
                 }
 
 
@@ -1434,13 +1451,13 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         }
 
-        private void TEQwOnMarketDataDisable()
+        private void TEQOnMarketDataDisable()
         {
             if (!IsTEQOnMarketData) return;
 
             IsTEQOnMarketData = false;
             if (tracing)
-                Print("TEQwOnMarketDataDisable");
+                Print("TEQOnMarketDataDisable");
 
         }
 
@@ -1552,29 +1569,48 @@ namespace NinjaTrader.NinjaScript.Strategies
             if (tracing)
                 Print("CancelAllOrders()");
 
-            //historical or realtime batch mode
-            if (IsHistoricalTradeOrPlayBack || !IsOrderCancelInspectEachOrDoBatchCancel)
+            try
             {
 
-                CancelOrder(orderStop1);
-                CancelOrder(orderStop2);
-                CancelOrder(orderStop3);
-                CancelOrder(orderStop4);
-                CancelOrder(orderTarget1);
-                CancelOrder(orderTarget2);
-                CancelOrder(orderTarget3);
-                CancelOrder(orderTarget4);
-                CancelOrder(orderEntry);
+                //historical or realtime batch mode
+                if (IsHistoricalTradeOrPlayBack || !IsOrderCancelInspectEachOrDoBatchCancel)
+                {
+
+                    CancelOrder(orderStop1);
+                    CancelOrder(orderStop2);
+                    CancelOrder(orderStop3);
+                    CancelOrder(orderStop4);
+                    CancelOrder(orderTarget1);
+                    CancelOrder(orderTarget2);
+                    CancelOrder(orderTarget3);
+                    CancelOrder(orderTarget4);
+                    CancelOrder(orderEntry);
+
+                }
+
+                //let this execute in case of orphaned orders not listed above
+                Account.Cancel(OrdersActive);
+
+                lock (ordersActiveLockObject)
+                {
+                    OrdersActive.Clear();
+                }
 
             }
+            catch (Exception ex)
+            {
+                string errorMsg = string.Format("CancelAllOrders {0}", ex.ToString());
+                Print(errorMsg);
+                Debug.Print(errorMsg);
+                Log(errorMsg, LogLevel.Error);
+            }
 
-            //let this execute in case of orphaned orders not listed above
 
             Account.CancelAllOrders(this.Instrument);
-            lock (ordersActiveLockObject)
-            {
-                OrdersActive.Clear();
-            }
+             
+           
+
+
 
         }
 
@@ -1737,7 +1773,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         q.Dequeue();
                         a = null;
                         lockedQueue = false;
-                        TEQwOnMarketDataDisable();
+                        TEQOnMarketDataDisable();
                         return;
                     }
 
@@ -1768,7 +1804,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                             //if here then go around again
                             Print("ProcessTradeEventQueue> Retry Later> AlgoSignalActions " + a.ToString());
                             lockedQueue = false;
-                            TEQwOnMarketDataDisable();
+                            TEQOnMarketDataDisable();
                             return;
                     }
                     //if still here then dQ process to do
@@ -1805,7 +1841,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
             #endregion
             lockedQueue = false;
-            TEQwOnMarketDataDisable();
+            TEQOnMarketDataDisable();
         }
 
         #endregion
@@ -3221,7 +3257,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         public virtual void PositionClose()
         {
-           
+
 
             if (Position.MarketPosition == MarketPosition.Long)
             {
@@ -3889,7 +3925,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 
 
-        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - Strategy Realtime Trading Use Queue", Description = "Realtime Trading Use Queued Signals: True/False - When using small timeseries or every tick this can smooth out performance as signals are queued and the last in is executed others are purged")]
+        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - Realtime Trading Signal Queue", Description = "Realtime Trading Use Queued Signals: True/False - When using small timeseries or every tick this can smooth out performance as signals are queued and the last in is executed others are purged")]
         public bool IsRealtimeTradingUseQueue
         {
             get { return useQueue; }
@@ -3944,7 +3980,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             set { tradeWorkFlowRetryAlarm = Math.Max(1, Math.Min(5, value)); }
         }
 
-        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - TEQTimerInterval", Description = "Trade Event Timer Interval Seconds 1 to 5")]
+        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - Realtime Trading Signal Queue Interval", Description = "Trade Event Timer Interval Seconds 1 to 5")]
         public int TEQTimerInterval
         {
             get { return tEQTimerInterval; }
