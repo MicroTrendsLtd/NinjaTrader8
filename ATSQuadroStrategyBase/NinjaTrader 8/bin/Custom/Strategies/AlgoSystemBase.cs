@@ -539,11 +539,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                         if (Position.MarketPosition != MarketPosition.Flat)
                         {
                             ATSAlgoSystemState = AlgoSystemState.HisTradeRT;
-
                         }
 
-
-                        break;
+                            break;
                     case State.Realtime:
 
                         if (tracing)
@@ -555,6 +553,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                         // one time only, as we transition from historical to real-time - doesnt seem to work  for unmanaged mode
                         // the work around was to use order names and reference them OnOrderUpdate
                         //https://ninjatrader.com/support/helpGuides/nt8/?getrealtimeorder.htm
+
+
 
                         if (orderEntry != null)
                         {
@@ -617,6 +617,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                             if (order != null) orderTarget4 = order;
                         }
 
+                        
+
+
                         if (ATSAlgoSystemState == AlgoSystemState.HisTradeRT && IsFlattenOnTransition)
                         {
 
@@ -643,12 +646,6 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                         break;
                     case State.Terminated:
-
-                        //if (ATSAlgoSystemMode != AlgoSystemMode.Live && connectionStatusOrder == ConnectionStatus.Connected)
-                        //{
-                        //    CancelAllOrders();
-                        //    Account.Flatten(new[] { Instrument });
-                        //}
 
                         break;
                     case State.Finalized:
@@ -735,9 +732,9 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                 if (AlgoSignalAction == AlgoSignalAction.None)
                 {
-                    //belt and braces check
-                    if (State != State.Historical && TradeWorkFlow == StrategyTradeWorkFlowState.ErrorFlattenAll && TradeWorkFlowLastChanged < DateTime.Now.AddSeconds(3))
-                        ProcessWorkFlow();
+                    ////belt and braces check
+                    //if (State != State.Historical && TradeWorkFlow == StrategyTradeWorkFlowState.ErrorFlattenAll && TradeWorkFlowLastChanged < DateTime.Now.AddSeconds(3))
+                    //    ProcessWorkFlow();
 
                     return;
                 }
@@ -1572,6 +1569,9 @@ namespace NinjaTrader.NinjaScript.Strategies
             try
             {
 
+               
+
+
                 //historical or realtime batch mode
                 if (IsHistoricalTradeOrPlayBack || !IsOrderCancelInspectEachOrDoBatchCancel)
                 {
@@ -1586,13 +1586,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                     CancelOrder(orderTarget4);
                     CancelOrder(orderEntry);
 
+                    if (IsHistorical) return;
                 }
-
-                //let this execute in case of orphaned orders not listed above
-                Account.Cancel(OrdersActive);
 
                 lock (ordersActiveLockObject)
                 {
+                    Account.Cancel(OrdersActive);
                     OrdersActive.Clear();
                 }
 
@@ -1605,11 +1604,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Log(errorMsg, LogLevel.Error);
             }
 
-
+            //only works in realtime - allows to cancel unknown orders in derived classes
             Account.CancelAllOrders(this.Instrument);
-             
-           
-
 
 
         }
@@ -3433,7 +3429,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                 //account bars and other items not available here in this state
 
-                txt = string.Format("{0} {1} {2} {3}:> {4}", txt, State.ToString(), ATSAlgoSystemState.ToString(), TradeWorkFlow.ToString(), msg);
+                txt = string.Format("{0} {1} {2} {3} {4}:> {5}", txt, State.ToString(), PositionStateString, ATSAlgoSystemState.ToString(), TradeWorkFlow.ToString(), msg);
                 base.Print(txt);
 
                 if (IsSimplePrintMode) return;
@@ -3757,6 +3753,18 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
 
         }
+
+        [XmlIgnore, Browsable(false)]
+        public string PositionStateString
+        {
+            get {
+                if (PositionState == 0) return "Flat";
+                else if (PositionState > 0) return "Long";
+                else return "Short";
+            }
+        }
+
+
 
 
         private double unrealizedPL = 0;
