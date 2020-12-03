@@ -916,7 +916,8 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                 #region OrdersRT
 
-                if (IsRealtime)
+                //not interested in market orders
+                if (IsRealtime  && order.OrderType != OrderType.Market)
                 {
                     lock (ordersActiveLockObject)
                     {
@@ -3481,6 +3482,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 + "|S=" + ATSAlgoSystemState.ToString()
                 + "|: "
                 + msg;
+
 
 
 
