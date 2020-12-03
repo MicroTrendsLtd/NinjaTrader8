@@ -167,7 +167,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         ErrorFlattenAllPending,
         ErrorFlattenAllConfirmed,
         CycleComplete = 10000,
-        
+
     }
     #endregion
     #region Event Args
@@ -193,7 +193,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
         public AlgoSystemState ATSAlgoSystemState
         {
-            get;set;
+            get; set;
         }
     }
 
@@ -252,18 +252,18 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
         }
 
-        
+
 
         public static void WriteLine(string message)
         {
-            
+
             Default.Tracing.LogFileName = string.Format("{0}\\trace\\ATS.NT8.{1}{2}{3}.Trace.txt", NinjaTrader.Core.Globals.UserDataDir, DateTime.Now.Year.ToString("d2"), DateTime.Now.Month.ToString("d2"), DateTime.Now.Day.ToString("d2"));
             Default.Tracing.WriteLine(message);
         }
 
         public static void OpenTraceFile()
         {
-          
+
             if (File.Exists(Default.Tracing.LogFileName)) System.Diagnostics.Process.Start(Default.Tracing.LogFileName);
 
         }
@@ -271,7 +271,6 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         public DebugTraceHelper()
         {
-            //To Do: System.Diagnostics.Trace.AutoFlush = IsAutoFlush;???
             Tracing.Name = "ASB.NT8.Trace";
             Tracing.LogFileName = string.Format("{0}\\trace\\ASB.NT8.{1}{2}{3}.Trace", NinjaTrader.Core.Globals.UserDataDir, DateTime.Now.Year.ToString("d2"), DateTime.Now.Month.ToString("d2"), DateTime.Now.Day.ToString("d2"));
         }
@@ -393,7 +392,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         #endregion
 
-        ConcurrentQueue<AlgoSignalActionMsq> q = new ConcurrentQueue<AlgoSignalActionMsq>();
+        Queue<AlgoSignalActionMsq> q = new Queue<AlgoSignalActionMsq>(1000);
         private bool lockedQueue = false;
         private readonly object queueLockObject = new Object();
 
@@ -429,7 +428,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         public ATSQuadroStrategyBase()
         {
             TradeSignalExpiryInterval = 3;
-            IsFlattenOnTransition = true;
+            IsFlattenOnTransition = false;
             IsTracingModeRealtimeOnly = true;
 
         }
@@ -694,244 +693,157 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
 
 
+        public override void OnCalculateMinMax()
+        {
+
+            //trap erroneous bugs from base class
+            try
+            {
+                base.OnCalculateMinMax();
+
+            }
+            catch (Exception ex)
+            {
+                Print("OnCalculateMinMax > " + ex.ToString());
+            }
+
+        }
+
+
         protected override void OnBarUpdate()
         {
             //historical playback not supported,  test for realtimeOnly trading
             if ((State == State.Historical && (IsRealtimeTradingOnly || IsPlayBack)) || CurrentBar < 1)
                 return;
 
-            lastPrice = Closes[0][0];
-
-            if (IsFirstTickOfBar)
+            try
             {
-                if (Bars.IsFirstBarOfSessionByIndex(0))
+                lastPrice = Closes[0][0];
+
+                if (IsFirstTickOfBar)
                 {
-                    if (IsExitOnSessionCloseStrategy)
+                    if (Bars.IsFirstBarOfSessionByIndex(0))
                     {
-                        OnExitOnCloseDetected();
+                        if (IsExitOnSessionCloseStrategy)
+                        {
+                            OnExitOnCloseDetected();
+                        }
                     }
                 }
-            }
-
-         
 
 
-            if (AlgoSignalAction == AlgoSignalAction.None)
-            {
-                //belt and braces check
-                if (State != State.Historical && TradeWorkFlow == StrategyTradeWorkFlowState.ErrorFlattenAll && TradeWorkFlowLastChanged < DateTime.Now.AddSeconds(3))
-                    ProcessWorkFlow();
-
-                return;
-            }
 
 
-            //if execution context reaches here process signal
-            if (ATSAlgoSystemState == AlgoSystemState.HisTradeRT && Position.MarketPosition == MarketPosition.Flat)
-            {
-                ATSAlgoSystemState = AlgoSystemState.Realtime;
-            }
-
-
-            //historical mode
-            if (State == State.Historical)
-            {
-                //Assumes all is perfect and forces action regardless of workflow state
-                switch (AlgoSignalAction)
+                if (AlgoSignalAction == AlgoSignalAction.None)
                 {
-                    case AlgoSignalAction.GoLong:
-                        TradeWorkFlowNewOrder(StrategyTradeWorkFlowState.GoLong);
-                        break;
-                    case AlgoSignalAction.GoShort:
-                        TradeWorkFlowNewOrder(StrategyTradeWorkFlowState.GoShort);
-                        break;
-                    case AlgoSignalAction.ExitTrade:
-                        TradeWorkFlowTradeExit();
-                        break;
-                    case AlgoSignalAction.ExitTradeLong:
-                        TradeWorkFlowTradeExitLong();
-                        break;
-                    case AlgoSignalAction.ExitTradeShort:
-                        TradeWorkFlowTradeExitShort();
-                        break;
+                    //belt and braces check
+                    if (State != State.Historical && TradeWorkFlow == StrategyTradeWorkFlowState.ErrorFlattenAll && TradeWorkFlowLastChanged < DateTime.Now.AddSeconds(3))
+                        ProcessWorkFlow();
+
+                    return;
                 }
-                //Reset to avoid duplicate action
-                AlgoSignalAction = AlgoSignalAction.None;
-                return;
-            }
-            //Realtime process with no signal queue
-            else if (!IsRealtimeTradingUseQueue)
-            {
-                bool isActionProcessed = false;
-                //realtime mode assumes all is not perfect and will all the queue of any AlgoSignalAction if not validated
-                switch (AlgoSignalAction)
+
+
+                //if execution context reaches here process signal
+                //historical mode
+                if (State == State.Historical)
                 {
-                    case AlgoSignalAction.GoLong:
-                        if (this.IsTradeWorkFlowCanGoLong())
-                        {
-                            isActionProcessed = true;
+                    //Assumes all is perfect and forces action regardless of workflow state
+                    switch (AlgoSignalAction)
+                    {
+                        case AlgoSignalAction.GoLong:
                             TradeWorkFlowNewOrder(StrategyTradeWorkFlowState.GoLong);
-                        }
-                        break;
-                    case AlgoSignalAction.GoShort:
-                        if (this.IsTradeWorkFlowCanGoShort())
-                        {
-                            isActionProcessed = true;
+                            break;
+                        case AlgoSignalAction.GoShort:
                             TradeWorkFlowNewOrder(StrategyTradeWorkFlowState.GoShort);
-                        }
-                        break;
-                    case AlgoSignalAction.ExitTrade:
-                        if (this.IsTradeWorkFlowCanExit())
-                        {
-                            isActionProcessed = true;
+                            break;
+                        case AlgoSignalAction.ExitTrade:
                             TradeWorkFlowTradeExit();
-                        }
-                        break;
-                    case AlgoSignalAction.ExitTradeLong:
-                        if (this.IsTradeWorkFlowCanExit())
-                        {
-                            isActionProcessed = true;
+                            break;
+                        case AlgoSignalAction.ExitTradeLong:
                             TradeWorkFlowTradeExitLong();
-                        }
-                        break;
-                    case AlgoSignalAction.ExitTradeShort:
-                        if (this.IsTradeWorkFlowCanExit())
-                        {
-                            isActionProcessed = true;
+                            break;
+                        case AlgoSignalAction.ExitTradeShort:
                             TradeWorkFlowTradeExitShort();
-                        }
-                        break;
-                }
-                if (isActionProcessed)
-                {
+                            break;
+                    }
                     //Reset to avoid duplicate action
                     AlgoSignalAction = AlgoSignalAction.None;
                     return;
                 }
-            }
-
-            //if execution context reaches here use q IsRealtimeTradingUseQueue or !isActionProcessed, add signAction to q
-            TEQ.Enqueue(new AlgoSignalActionMsq(AlgoSignalAction, Account.Connection.Now, "Auto Signal " + AlgoSignalAction));
-
-            //if q from now or prior is set process
-            if (TEQ.Count > 0)
-                ProcessTradeEventQueue();
-
-            //Reset to avoid duplicate action
-            AlgoSignalAction = AlgoSignalAction.None;
-
-
-            //belt and braces
-            if (TradeWorkFlow == StrategyTradeWorkFlowState.ErrorFlattenAll && TradeWorkFlowLastChanged < DateTime.Now.AddSeconds(3))
-                ProcessWorkFlow();
-        }
-
-        protected override void OnMarketData(MarketDataEventArgs marketDataUpdate)
-        {
-
-            if (marketDataUpdate.MarketDataType == MarketDataType.Bid || marketDataUpdate.MarketDataType == MarketDataType.Ask)
-            {
-                if (DateTime.Now < onMarketDataBidTimeNextAllowed) return;
-                onMarketDataBidTimeNextAllowed = DateTime.Now.AddMilliseconds(250);
-                AskPrice = marketDataUpdate.Ask;
-                BidPrice = marketDataUpdate.Bid;
-                return;
-            }
-
-            if (marketDataUpdate.MarketDataType != MarketDataType.Last) return;
-            this.MarketDataUpdate = marketDataUpdate;
-            if (this.LastPrice == marketDataUpdate.Price) return;
-            LastPrice = marketDataUpdate.Price;
-
-
-            if (DateTime.Now < onMarketDataTimeNextAllowed) return;
-            onMarketDataTimeNextAllowed = DateTime.Now.AddSeconds(1);
-
-            if (Position.MarketPosition == MarketPosition.Flat)
-            {
-                PositionInfo = string.Format("{0}", Position.MarketPosition.ToString());
-                PositionState = 0;
-                UnRealizedPL = 0;
-            }
-            else
-            {
-                PositionInfo = string.Format("{0} {1} @ {2}", Position.MarketPosition.ToString().Substring(0, 1), Position.Quantity, Position.AveragePrice);
-
-                if (Position.MarketPosition == MarketPosition.Long)
-                    PositionState = 1;
-                else
-                    PositionState = -1;
-
-                UnRealizedPL = Position.GetUnrealizedProfitLoss(PerformanceUnit.Currency);
-            }
-
-            if (IsHistorical || TradeWorkFlow == StrategyTradeWorkFlowState.ExitOnTransitionWaitingConfirmation)
-                return;
-
-            //lock re-etnry here during processing
-            if (this.inOnMarketData) return;
-            lock (this.inOnMarketDataLock)
-            {
-                if (this.inOnMarketData) return;
-                this.inOnMarketData = true;
-            }
-
-
-            try
-            {
-
-               
-
-                //unjam StrategyTradeWorkFlowState in case its stuck
-                if ((!IsTradeWorkFlowReady() || TradeWorkFlow == StrategyTradeWorkFlowState.Error) && TradeWorkFlowLastChanged < DateTime.Now.AddSeconds(-1 * TradeWorkFlowTimeOut))
+                //Realtime process with no signal queue
+                else if (!IsRealtimeTradingUseQueue)
                 {
-                    if (tracing)
-                        Print("OnMarketData >> TWF ErrorTimeOut");
-
-                    TradeWorkFlow = StrategyTradeWorkFlowState.ErrorTimeOut;
-                    ProcessWorkFlow(StrategyTradeWorkFlowState.ErrorTimeOut);
-                    this.inOnMarketData = false;
-                    return;
-                }
-
-
-                //process the trade workflow state engine - move state on in case its holding up signals execution
-                if (IsTradeWorkFlowOnMarketData && Now >= tradeWorkFlowNextTimeValid)
-                {
-                    tradeWorkFlowNextTimeValid = Now.AddMilliseconds(TradeWorkFlowTimerInterval);
-                    if (tracing)
-                        Print("OnMarketData >> TWF");
-                    ProcessWorkFlow();
-                }
-
-                //process the signal q
-                if (IsTEQOnMarketData && Now >= tEQNextTimeValid)
-                {
-                    tEQNextTimeValid = Now.AddSeconds(TEQTimerInterval);
-                    if (tracing)
-                        Print("OnMarketData >> TEQ");
-
-
-                    if (TEQ.Count > 0)
+                    bool isActionProcessed = false;
+                    //realtime mode assumes all is not perfect and will all the queue of any AlgoSignalAction if not validated
+                    switch (AlgoSignalAction)
                     {
-                        ProcessTradeEventQueue();
-                        this.inOnMarketData = false;
+                        case AlgoSignalAction.GoLong:
+                            if (this.IsTradeWorkFlowCanGoLong())
+                            {
+                                isActionProcessed = true;
+                                TradeWorkFlowNewOrder(StrategyTradeWorkFlowState.GoLong);
+                            }
+                            break;
+                        case AlgoSignalAction.GoShort:
+                            if (this.IsTradeWorkFlowCanGoShort())
+                            {
+                                isActionProcessed = true;
+                                TradeWorkFlowNewOrder(StrategyTradeWorkFlowState.GoShort);
+                            }
+                            break;
+                        case AlgoSignalAction.ExitTrade:
+                            if (this.IsTradeWorkFlowCanExit())
+                            {
+                                isActionProcessed = true;
+                                TradeWorkFlowTradeExit();
+                            }
+                            break;
+                        case AlgoSignalAction.ExitTradeLong:
+                            if (this.IsTradeWorkFlowCanExit())
+                            {
+                                isActionProcessed = true;
+                                TradeWorkFlowTradeExitLong();
+                            }
+                            break;
+                        case AlgoSignalAction.ExitTradeShort:
+                            if (this.IsTradeWorkFlowCanExit())
+                            {
+                                isActionProcessed = true;
+                                TradeWorkFlowTradeExitShort();
+                            }
+                            break;
+                    }
+                    if (isActionProcessed)
+                    {
+                        //Reset to avoid duplicate action
+                        AlgoSignalAction = AlgoSignalAction.None;
                         return;
                     }
+                    if (!IsUseSignalQFallbackForSignals) return;
+                }
+                lock (TEQ)
+                {
+                    //if execution context reaches here use q IsRealtimeTradingUseQueue or !isActionProcessed, add signAction to q
+                    TEQ.Enqueue(new AlgoSignalActionMsq(AlgoSignalAction, Account.Connection.Now, "Auto Signal " + AlgoSignalAction));
                 }
 
+                //Reset to avoid duplicate action
+                AlgoSignalAction = AlgoSignalAction.None;
 
+                ProcessTradeEventQueue();
             }
             catch (Exception ex)
             {
-                Print("OnMarketData >> Error: " + ex.ToString());
-                Debug.Print("OnMarketData >> Error: " + ex.ToString());
-                Log("OnMarketData >> Error: " + ex.ToString(), LogLevel.Error);
+                Print("OnBarUpdate > " + ex.ToString());
             }
-            this.inOnMarketData = false;
-
-
         }
+
+
+
+
+
+
 
         protected override void OnOrderUpdate(Order order, double limitPrice, double stopPrice, int quantity, int filled, double averageFillPrice, OrderState orderState, DateTime time, ErrorCode error, string comment)
         {
@@ -941,16 +853,18 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Print("OnOrderUpdate(" + order.Name + " OrderId=" + order.OrderId + " State=" + order.OrderState.ToString() + ")");
 
 
-            if (State==State.Historical) return;
+            if (IsHistorical) return;
 
+            //removed this will not be hit due to  IsHistorical return
+            //if (State == State.Realtime && ATSAlgoSystemState == AlgoSystemState.HisTradeRT && !order.IsBacktestOrder)
+            //{
+            //    ATSAlgoSystemState = AlgoSystemState.Realtime;
+            //}
 
-            if (State == State.Realtime && ATSAlgoSystemState == AlgoSystemState.HisTradeRT && !order.IsBacktestOrder)
-            {
-                ATSAlgoSystemState = AlgoSystemState.Realtime;
-            }
-
-            if (IsHistorical)
-                return;
+            //if (ATSAlgoSystemState == AlgoSystemState.HisTradeRT)
+            //{
+            //    return;
+            //}
 
             try
             {
@@ -1246,10 +1160,10 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                 if (ATSAlgoSystemState == AlgoSystemState.HisTradeRT)
                 {
-                    if(TradeWorkFlow == StrategyTradeWorkFlowState.ExitOnTransitionWaitingConfirmation)
+                    if (TradeWorkFlow == StrategyTradeWorkFlowState.ExitOnTransitionWaitingConfirmation)
                         ProcessWorkFlow();
 
-                    if(!execution.Order.IsBacktestOrder || Position.MarketPosition==MarketPosition.Flat)
+                    if (!execution.Order.IsBacktestOrder || Position.MarketPosition == MarketPosition.Flat)
                         ATSAlgoSystemState = AlgoSystemState.Realtime;
                 }
 
@@ -1295,8 +1209,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                     if (tracing)
                         Print("- PRIOR ENTRY ORDER EXECUTED OnExecution(" + execution.ToString() + ")");
 
-                    TradeWorkFlow = StrategyTradeWorkFlowState.Error;
-                    ProcessWorkFlow(TradeWorkFlow);
+                    //rollback 20201203 to test for deadlock
+                    //TradeWorkFlow = StrategyTradeWorkFlowState.Error;
+                    //ProcessWorkFlow(TradeWorkFlow);
 
                 }
             }
@@ -1314,7 +1229,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             if (tracing)
                 Print("OnPositionUpdate > " + marketPosition.ToString());
 
-            if (State==State.Historical) return;
+            if (IsHistorical) return;
 
 
             if (ATSAlgoSystemState == AlgoSystemState.HisTradeRT && marketPosition == MarketPosition.Flat)
@@ -1324,7 +1239,112 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         }
 
-     
+        protected override void OnMarketData(MarketDataEventArgs marketDataUpdate)
+        {
+
+            if (marketDataUpdate.MarketDataType == MarketDataType.Bid || marketDataUpdate.MarketDataType == MarketDataType.Ask)
+            {
+                if (DateTime.Now < onMarketDataBidTimeNextAllowed) return;
+                onMarketDataBidTimeNextAllowed = DateTime.Now.AddMilliseconds(250);
+                AskPrice = marketDataUpdate.Ask;
+                BidPrice = marketDataUpdate.Bid;
+                return;
+            }
+
+            if (marketDataUpdate.MarketDataType != MarketDataType.Last) return;
+            this.MarketDataUpdate = marketDataUpdate;
+            if (this.LastPrice == marketDataUpdate.Price) return;
+            LastPrice = marketDataUpdate.Price;
+
+
+            if (DateTime.Now < onMarketDataTimeNextAllowed) return;
+            onMarketDataTimeNextAllowed = DateTime.Now.AddSeconds(1);
+
+            if (Position.MarketPosition == MarketPosition.Flat)
+            {
+                PositionInfo = string.Format("{0}", Position.MarketPosition.ToString());
+                PositionState = 0;
+                UnRealizedPL = 0;
+            }
+            else
+            {
+                PositionInfo = string.Format("{0} {1} @ {2}", Position.MarketPosition.ToString().Substring(0, 1), Position.Quantity, Position.AveragePrice);
+
+                if (Position.MarketPosition == MarketPosition.Long)
+                    PositionState = 1;
+                else
+                    PositionState = -1;
+
+                UnRealizedPL = Position.GetUnrealizedProfitLoss(PerformanceUnit.Currency);
+            }
+
+            if (IsHistorical || TradeWorkFlow == StrategyTradeWorkFlowState.ExitOnTransitionWaitingConfirmation)
+                return;
+
+            //lock re-etnry here during processing
+            if (this.inOnMarketData) return;
+            lock (this.inOnMarketDataLock)
+            {
+                if (this.inOnMarketData) return;
+                this.inOnMarketData = true;
+            }
+
+
+            try
+            {
+
+
+
+                //unjam StrategyTradeWorkFlowState in case its stuck
+                if ((!IsTradeWorkFlowReady() || TradeWorkFlow == StrategyTradeWorkFlowState.Error) && TradeWorkFlowLastChanged < DateTime.Now.AddSeconds(-1 * TradeWorkFlowTimeOut))
+                {
+                    if (tracing)
+                        Print("OnMarketData >> TWF ErrorTimeOut");
+
+                    TradeWorkFlow = StrategyTradeWorkFlowState.ErrorTimeOut;
+                    ProcessWorkFlow(StrategyTradeWorkFlowState.ErrorTimeOut);
+                    this.inOnMarketData = false;
+                    return;
+                }
+
+
+                //process the trade workflow state engine - move state on in case its holding up signals execution
+                if (IsTradeWorkFlowOnMarketData && Now >= tradeWorkFlowNextTimeValid)
+                {
+                    tradeWorkFlowNextTimeValid = Now.AddMilliseconds(TradeWorkFlowTimerInterval);
+                    if (tracing)
+                        Print("OnMarketData >> TWF");
+                    ProcessWorkFlow();
+                }
+
+                //process the signal q
+                if (IsTEQOnMarketData && Now >= tEQNextTimeValid)
+                {
+                    tEQNextTimeValid = Now.AddSeconds(TEQTimerInterval);
+                    if (tracing)
+                        Print("OnMarketData >> TEQ");
+
+
+                    if (TEQ.Count > 0)
+                    {
+                        ProcessTradeEventQueue();
+                        this.inOnMarketData = false;
+                        return;
+                    }
+                }
+
+
+            }
+            catch (Exception ex)
+            {
+                Print("OnMarketData >> Error: " + ex.ToString());
+                Debug.Print("OnMarketData >> Error: " + ex.ToString());
+                Log("OnMarketData >> Error: " + ex.ToString(), LogLevel.Error);
+            }
+            this.inOnMarketData = false;
+
+
+        }
 
 
 
@@ -1354,7 +1374,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 handler(this, e);
             }
 
-            
+
         }
 
 
@@ -1669,104 +1689,113 @@ namespace NinjaTrader.NinjaScript.Strategies
                 lockedQueue = true;
             }
             #endregion
-            //ConcurrentQueue no explicit locking applied for read,write etc
-            if (q.Count == 0)
+            //external locking required in case this is being set onBarUpdate or vias User
+            lock (q)
             {
-                lockedQueue = false;
-                return;
-            }
-            else if (!IsTradeWorkFlowReady())
-            {
-                if (tracing)
-                    Print("ProcessTradeEventQueue(Queue count " + q.Count.ToString() + " TradeWF " + tradeWorkFlow.ToString() + "  ) ");
-
-                if (State == State.Realtime)
+                if (q.Count == 0)
                 {
-                    TEQOnMarketDataEnable();
+                    lockedQueue = false;
+                    return;
                 }
-                lockedQueue = false;
-                return;
+                else if (!IsTradeWorkFlowReady())
+                {
+                    if (tracing)
+                        Print("ProcessTradeEventQueue(Queue count " + q.Count.ToString() + " TradeWF " + tradeWorkFlow.ToString() + "  ) ");
+
+                    if (State == State.Realtime)
+                    {
+                        TEQOnMarketDataEnable();
+                    }
+                    lockedQueue = false;
+                    return;
+                }
             }
 
             #region process Queue
             try
             {
                 AlgoSignalActionMsq a = null;
-                while (q.Count > 1)
+                lock (q)
                 {
-                    a = (AlgoSignalActionMsq)q.Dequeue();
+                    while (q.Count > 1)
+                    {
+                        a = (AlgoSignalActionMsq)q.Dequeue();
+                        if (tracing)
+                            Print("ProcessTradeEventQueue > Dequeue " + a.ToString());
+                    }
+                    //Try process action
+                    a = (AlgoSignalActionMsq)q.Peek();
                     if (tracing)
-                        Print("ProcessTradeEventQueue > Dequeue " + a.ToString());
-                }
-                //Try process action
-                a = (AlgoSignalActionMsq)q.Peek();
-                if (tracing)
-                    Print("ProcessTradeEventQueue> Try> AlgoSignalActions " + a.ToString());
+                        Print("ProcessTradeEventQueue> Peek> AlgoSignalActions " + a.ToString());
 
+                    //expire signal if needed
+                    if (DateTime.Now > a.ActionDateTime.AddSeconds(TradeSignalExpiryInterval))
+                    {
+                        if (tracing)
+                            Print("ProcessTradeEventQueue> Trade Signal TimeOut > AlgoSignalActions " + a.ToString());
 
+                        q.Dequeue();
+                        a = null;
+                        lockedQueue = false;
+                        TEQwOnMarketDataDisable();
+                        return;
+                    }
 
-                //expire signal if needed
-                if (DateTime.Now > a.ActionDateTime.AddSeconds(TradeSignalExpiryInterval))
-                {
+                    //if cannot process now do not dQ - unlock and return
+                    switch (a.Action)
+                    {
+                        case AlgoSignalAction.GoLong:
+                            if (!this.IsTradeWorkFlowCanGoLong())
+                                goto default;
+                            break;
+                        case AlgoSignalAction.GoShort:
+                            if (!this.IsTradeWorkFlowCanGoShort())
+                                goto default;
+                            break;
+                        case AlgoSignalAction.ExitTrade:
+                            if (!this.IsTradeWorkFlowCanExit())
+                                goto default;
+                            break;
+                        case AlgoSignalAction.ExitTradeLong:
+                            if (!this.IsTradeWorkFlowCanExit())
+                                goto default;
+                            break;
+                        case AlgoSignalAction.ExitTradeShort:
+                            if (!this.IsTradeWorkFlowCanExit())
+                                goto default;
+                            break;
+                        default:
+                            //if here then go around again
+                            Print("ProcessTradeEventQueue> Retry Later> AlgoSignalActions " + a.ToString());
+                            lockedQueue = false;
+                            TEQwOnMarketDataDisable();
+                            return;
+                    }
+                    //if still here then dQ process to do
                     q.Dequeue();
-                    a = null;
-                    if (tracing)
-                        Print("ProcessTradeEventQueue> Trade Signal TimeOut > AlgoSignalActions " + a.ToString());
-
-                    lockedQueue = false;
-                    TEQwOnMarketDataDisable();
                 }
 
-                bool dQ = false;
+                Print("ProcessTradeEventQueue> Processed> AlgoSignalActions " + a.ToString());
 
                 switch (a.Action)
                 {
                     case AlgoSignalAction.GoLong:
-                        if (this.IsTradeWorkFlowCanGoLong())
-                        {
-                            dQ = true;
-                            TradeWorkFlowNewOrder(StrategyTradeWorkFlowState.GoLong);
-                        }
+                        TradeWorkFlowNewOrder(StrategyTradeWorkFlowState.GoLong);
                         break;
                     case AlgoSignalAction.GoShort:
-                        if (this.IsTradeWorkFlowCanGoShort())
-                        {
-                            dQ = true;
-                            TradeWorkFlowNewOrder(StrategyTradeWorkFlowState.GoShort);
-                        }
+                        TradeWorkFlowNewOrder(StrategyTradeWorkFlowState.GoShort);
                         break;
                     case AlgoSignalAction.ExitTrade:
-                        if (this.IsTradeWorkFlowCanExit())
-                        {
-                            dQ = true;
-                            TradeWorkFlowTradeExit();
-                        }
+                        TradeWorkFlowTradeExit();
                         break;
                     case AlgoSignalAction.ExitTradeLong:
-                        if (this.IsTradeWorkFlowCanExit())
-                        {
-                            dQ = true;
-                            TradeWorkFlowTradeExitLong();
-                        }
+                        TradeWorkFlowTradeExitLong();
                         break;
                     case AlgoSignalAction.ExitTradeShort:
-                        if (this.IsTradeWorkFlowCanExit())
-                        {
-                            dQ = true;
-                            TradeWorkFlowTradeExitShort();
-                        }
+                        TradeWorkFlowTradeExitShort();
                         break;
                 }
 
-                if (dQ) q.Dequeue();
-
-                if (tracing)
-                {
-                    if (dQ)
-                        Print("ProcessTradeEventQueue> Processed> AlgoSignalActions " + a.ToString());
-                    else
-                        Print("ProcessTradeEventQueue> Retry Later> AlgoSignalActions " + a.ToString());
-                }
             }
             catch (Exception ex)
             {
@@ -3192,11 +3221,13 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         public virtual void PositionClose()
         {
-            if (tracing)
-                Print("PositionClose()");
+           
 
             if (Position.MarketPosition == MarketPosition.Long)
             {
+                if (tracing)
+                    Print("PositionClose() > MarketPosition.Long");
+
                 string orderEntryName = orderEntry != null ? orderEntry.Name.Replace(arrowUp, string.Empty) : "Long";
                 orderEntryName = orderEntryName.Substring(3);
                 orderClose = null;
@@ -3204,6 +3235,9 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
             else if (Position.MarketPosition == MarketPosition.Short)
             {
+                if (tracing)
+                    Print("PositionClose() > MarketPosition.Short");
+
                 string orderEntryName = orderEntry != null ? orderEntry.Name.Replace(arrowDown, string.Empty) : "Short";
                 orderEntryName = orderEntryName.Substring(3);
                 orderClose = null;
@@ -3211,6 +3245,9 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
             else if (Position.Quantity != 0)
             {
+                if (tracing)
+                    Print("PositionClose() > Position.Quantity != 0");
+
                 Position.Close();
             }
         }
@@ -3359,9 +3396,11 @@ namespace NinjaTrader.NinjaScript.Strategies
                 PrintTo = PrintTo.OutputTab1;
 
                 //account bars and other items not available here in this state
-               
-                    txt = string.Format("{0} {1} {2} {3}:> {4}", txt, State.ToString(), ATSAlgoSystemState.ToString(), TradeWorkFlow.ToString(), msg);
-                    base.Print(txt);
+
+                txt = string.Format("{0} {1} {2} {3}:> {4}", txt, State.ToString(), ATSAlgoSystemState.ToString(), TradeWorkFlow.ToString(), msg);
+                base.Print(txt);
+
+                if (IsSimplePrintMode) return;
 
 
                 if (State < State.Active || State >= State.Terminated)
@@ -3375,7 +3414,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 
                 if (State >= State.DataLoaded)
-                    txt += " " + Bars.ToChartString();
+                    txt += " " + (Bars != null ? Bars.ToChartString() : "Bars.?");
 
 
                 txt += " " + (string.IsNullOrEmpty(Thread.CurrentThread.Name) ? "CThread.?" : Thread.CurrentThread.Name);
@@ -3401,7 +3440,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                     + "|RO=" + Orders.Count.ToString()
                     + "|MP=" + Position.MarketPosition.ToString()
                     + "|PQ=" + Position.Quantity.ToString()
-                    + "|AO=" + ordersActiveCount.ToString();
+                    + "|AO=" + ordersActiveCount.ToString()
+                    + "|SQ=" + TEQ.Count().ToString()
+                    ;
                 }
 
                 txt += "|WF=" + this.tradeWorkFlow.ToString()
@@ -3418,10 +3459,9 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
             catch (Exception ex)
             {
-                //careful to avoid stack overflow use base.
+                //careful to avoid print here or use base.Print to avoid StackOverFlow
                 string error = "Print() >> Error: " + ex.ToString();
                 TraceToFile(error);
-                base.Print(error);
                 Debug.Print(error);
                 Log(error, LogLevel.Error);
             }
@@ -3837,11 +3877,15 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Display(GroupName = "Zystem Params", Order = 0, Name = "DEBUG - IsTracingModeRealtimeOnly", Description = "IsTracingModeRealtimeOnly - DEBUG developer usage only")]
         public bool IsTracingModeRealtimeOnly
         {
-            get;set;
+            get; set;
         }
 
         [Display(GroupName = "Zystem Params", Order = 0, Name = "IsTracingOpenFileOnError", Description = "IsTracingOpenFileOnError")]
         public bool IsTracingOpenFileOnError { get; set; }
+
+
+        [Display(GroupName = "Zystem Params", Order = 0, Name = "IsSimplePrintMode", Description = "IsSimplePrintMode")]
+        public bool IsSimplePrintMode { get; set; }
 
 
 
@@ -3851,6 +3895,11 @@ namespace NinjaTrader.NinjaScript.Strategies
             get { return useQueue; }
             set { useQueue = value; }
         }
+
+        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsUseSignalQFallbackForSignals", Description = "IsUseSignalQFallbackForSignals use signal q to catch any missed signals due to busy trade workflow state")]
+        public bool IsUseSignalQFallbackForSignals { get; set; }
+
+
 
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - Strategy Trade Signal Expiry Period", Description = "For any buffered signals due to a series of fast reversals or pending order actions - invalidate and Ignore trade signals of age longer than 3 seconds")]
         public int TradeSignalExpiryInterval
@@ -3905,11 +3954,12 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsStrategyUnSafeMode", Description = "WARNING do not use this!!! IsStrategyUnSafeMode allows faster operation for scalping and less latency on entry - however this mode is only for very competent experienced traders as this can result in oder fills and unexpected position fills and order balances... Always keep this off unless you fully understand the risks are yours, and you are an experienced trader in attendance and plan to interact and control any order issues, positions which might result in unsafe mode due to fast market reversal and other anomalies")]
         public bool IsStrategyUnSafeMode { get; set; }
 
-       
+
 
 
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsFlattenOnTransition", Description = "Realtime Trading Flatten all historical positions and cancel orders - to prevent caveats caused by historical trades becoming realtime and to prevent the need to wait for a historical trade postion to close in realtime prior to realtime trading")]
         public bool IsFlattenOnTransition { get; set; }
+
 
 
 
@@ -3933,7 +3983,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
 
 
-      
+
 
 
         #region Non browsable
@@ -3941,7 +3991,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         [Browsable(false)]
         [XmlIgnore()]
-        protected ConcurrentQueue<AlgoSignalActionMsq> TEQ
+        protected Queue<AlgoSignalActionMsq> TEQ
         {
             get
             {
@@ -4049,7 +4099,8 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Browsable(false)]
         [XmlIgnore()]
         public MarketDataEventArgs MarketDataUpdate { get; private set; }
-     
+
+
 
 
 
