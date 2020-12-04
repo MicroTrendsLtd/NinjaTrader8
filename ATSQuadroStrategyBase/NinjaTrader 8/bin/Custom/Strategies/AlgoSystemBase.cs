@@ -207,7 +207,8 @@ namespace NinjaTrader.NinjaScript.Strategies
         GoLong = 2,
         GoShort = 3,
         ExitTradeLong = 4,
-        ExitTradeShort = 5
+        ExitTradeShort = 5,
+        GoOCOEntry=6
     }
 
     public class AlgoSignalActionMsq
@@ -340,6 +341,9 @@ namespace NinjaTrader.NinjaScript.Strategies
         //lock objects
         private readonly object tradeWorkFlowNewOrderLockObject = new Object();
         private readonly object tradeWorkFlowExitTradeLockObject = new Object();
+        private readonly object tradeWorkFlowTradeEntryOCOLockObject = new Object();
+        
+
         private readonly object lockObjectClose = new object();
         private bool isLockPositionClose = false;
         private readonly object lockObjectPositionClose = new object();
@@ -362,6 +366,10 @@ namespace NinjaTrader.NinjaScript.Strategies
         protected const string stop2Name = "SL2";
         protected const string stop3Name = "SL3";
         protected const string stop4Name = "SL4";
+
+        protected const string orderEntryOCOLongName = "↑OEL";
+        protected const string orderEntryOCOShortName = "↓OES";
+
 
         protected int entryCount = 1;
 
@@ -616,8 +624,16 @@ namespace NinjaTrader.NinjaScript.Strategies
                             Order order = GetRealtimeOrder(orderTarget4);
                             if (order != null) orderTarget4 = order;
                         }
-
-                        
+                        if (orderEntryOCOLong != null)
+                        {
+                            Order order = GetRealtimeOrder(orderEntryOCOLong);
+                            if (order != null) orderEntryOCOLong = order;
+                        }
+                        if (orderEntryOCOShort != null)
+                        {
+                            Order order = GetRealtimeOrder(orderEntryOCOShort);
+                            if (order != null) orderEntryOCOShort = order;
+                        }
 
 
                         if (ATSAlgoSystemState == AlgoSystemState.HisTradeRT && IsFlattenOnTransition)
@@ -728,16 +744,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                 }
 
 
-
-
                 if (AlgoSignalAction == AlgoSignalAction.None)
-                {
-                    ////belt and braces check
-                    //if (State != State.Historical && TradeWorkFlow == StrategyTradeWorkFlowState.ErrorFlattenAll && TradeWorkFlowLastChanged < DateTime.Now.AddSeconds(3))
-                    //    ProcessWorkFlow();
-
                     return;
-                }
 
 
                 //if execution context reaches here process signal
@@ -762,6 +770,11 @@ namespace NinjaTrader.NinjaScript.Strategies
                         case AlgoSignalAction.ExitTradeShort:
                             TradeWorkFlowTradeExitShort();
                             break;
+                        case AlgoSignalAction.GoOCOEntry:
+                            TradeWorkFlowTradeEntryOCO();
+                            break;
+
+
                     }
                     //Reset to avoid duplicate action
                     AlgoSignalAction = AlgoSignalAction.None;
@@ -807,6 +820,13 @@ namespace NinjaTrader.NinjaScript.Strategies
                             {
                                 isActionProcessed = true;
                                 TradeWorkFlowTradeExitShort();
+                            }
+                            break;
+                        case AlgoSignalAction.GoOCOEntry:
+                            if (this.IsTradeWorkFlowCanEntryOCO())
+                            {
+                                isActionProcessed = true;
+                                TradeWorkFlowTradeEntryOCO();
                             }
                             break;
                     }
@@ -865,21 +885,10 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             if (IsHistorical) return;
 
-            //removed this will not be hit due to  IsHistorical return
-            //if (State == State.Realtime && ATSAlgoSystemState == AlgoSystemState.HisTradeRT && !order.IsBacktestOrder)
-            //{
-            //    ATSAlgoSystemState = AlgoSystemState.Realtime;
-            //}
-
-            //if (ATSAlgoSystemState == AlgoSystemState.HisTradeRT)
-            //{
-            //    return;
-            //}
-
             try
             {
 
-                //add this bit to take care of caveats and problems over submitorder returning slowly missing the order ref or the order ref chaning due to realtime transition
+                //add this bit to take care of caveats and problems over submitorder returning slowly missing the order ref or the order ref changing due to realtime transition
                 if (order.OrderState == OrderState.Submitted || order.OrderState == OrderState.Accepted || order.OrderState == OrderState.Working)
                 {
 
@@ -898,6 +907,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                         else if (order.Name.Contains(stop2Name)) { orderStop2 = order; }
                         else if (order.Name.Contains(stop3Name)) { orderStop3 = order; }
                         else if (order.Name.Contains(stop4Name)) { orderStop4 = order; }
+                        else if(order.Name.Contains(orderEntryOCOLongName)) { orderEntryOCOLong = order; }
+                        else if (order.Name.Contains(orderEntryOCOShortName)) { orderEntryOCOShort = order; }
                     }
                     else if (order.OrderType == OrderType.Limit)
                     {
@@ -905,7 +916,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                         else if (order.Name.Contains(target2Name)) { orderTarget2 = order; }
                         else if (order.Name.Contains(target3Name)) { orderTarget3 = order; }
                         else if (order.Name.Contains(target4Name)) { orderTarget4 = order; }
-
                     }
                 }
 
@@ -1018,20 +1028,20 @@ namespace NinjaTrader.NinjaScript.Strategies
                                         lock (OrdersProfitTarget)
                                             if (OrdersProfitTarget.Contains(order))
                                             {
-
                                                 raiseAsError = true;
                                             }
                         }
-                        if (tracing) Print("Raise Error " + raiseAsError.ToString());
-                        if (raiseAsError) TradeWorkFlow = StrategyTradeWorkFlowState.Error;
-                        ProcessWorkFlow();
+                        if (tracing) Print("OnOrderUpdate > Raise Error " + raiseAsError.ToString());
+
+                        //set to error state and process in deffered execution to allow OnOrderUpdate to return etc
+                        if (raiseAsError)
+                            TradeWorkFlowErrorProcess(false);
+
                         break;
                     case OrderState.Unknown:
                         if (tracing)
                             Print("OnOrderUpdate > Unknown(" + order.ToString() + ")");
-
-                        TradeWorkFlow = StrategyTradeWorkFlowState.Error;
-                        ProcessWorkFlow();
+                        TradeWorkFlowErrorProcess(false);
                         break;
                     case OrderState.Working:
 
@@ -1217,12 +1227,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                 }
                 else if (execution.Order == orderEntryPrior)
                 {
+                    //if priorEntry executed this means a cancel failed and was missed by the time the new order submitted - something went wrong....  best to go to error mode
                     if (tracing)
-                        Print("- PRIOR ENTRY ORDER EXECUTED OnExecution(" + execution.ToString() + ")");
+                        Print("OnExecutionUpdate > ERROR! Prior order Executed (" + execution.ToString() + ")");
 
-                    //rollback 20201203 to test for deadlock
-                    //TradeWorkFlow = StrategyTradeWorkFlowState.Error;
-                    //ProcessWorkFlow(TradeWorkFlow);
+                    //process error
+                    TradeWorkFlowErrorProcess(false);
 
                 }
             }
@@ -1234,6 +1244,8 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
 
         }
+
+      
 
         protected override void OnPositionUpdate(Position position, double averagePrice, int quantity, MarketPosition marketPosition)
         {
@@ -1557,7 +1569,8 @@ namespace NinjaTrader.NinjaScript.Strategies
             if (tracing)
                 Print("OnOrderOverFillDetected(" + order.ToString() + ")");
 
-            ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
+            TradeWorkFlowErrorProcess(false);
+            
         }
 
 
@@ -1574,7 +1587,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     if (IsOrderCancelInspectEachOrDoBatchCancel)
                     {
                         
-                        if(IsOrderActiveCanCancel(orderStop1)) CancelOrder(orderStop1);
+                        if (IsOrderActiveCanCancel(orderStop1)) CancelOrder(orderStop1);
                         if (IsOrderActiveCanCancel(orderStop2)) CancelOrder(orderStop2);
                         if (IsOrderActiveCanCancel(orderStop3)) CancelOrder(orderStop3);
                         if (IsOrderActiveCanCancel(orderStop4)) CancelOrder(orderStop4);
@@ -1591,7 +1604,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         if (IsOrderActiveCanCancel(orderEntry)) CancelOrder(orderEntry);
                         if (IsOrderActiveCanCancel(orderEntryOCOLong)) CancelOrder(orderEntryOCOLong);
                         if (IsOrderActiveCanCancel(orderEntryOCOShort)) CancelOrder(orderEntryOCOShort);
-                        if (IsOrderActiveCanCancel(orderTarget4)) CancelOrder(orderTarget4);
+                        
                         
                     }
                     else  //batch
@@ -1912,17 +1925,17 @@ namespace NinjaTrader.NinjaScript.Strategies
         #endregion
         #region process workflow
 
-        protected void ProcessWorkFlow()
+        public void ProcessWorkFlow()
         {
             TradeWorkFlow = ProcessWorkFlow(TradeWorkFlow);
         }
 
-        private void ProcessWorkFlow(object state)
+        public void ProcessWorkFlow(object state)
         {
             ProcessWorkFlow(this.tradeWorkFlow);
         }
 
-        protected StrategyTradeWorkFlowState ProcessWorkFlow(StrategyTradeWorkFlowState tradeWorkFlow)
+        public virtual StrategyTradeWorkFlowState ProcessWorkFlow(StrategyTradeWorkFlowState tradeWorkFlow)
         {
             if (tracing)
                 Print("ProcessWorkFlow(" + tradeWorkFlow.ToString() + ")");
@@ -3044,6 +3057,50 @@ namespace NinjaTrader.NinjaScript.Strategies
             return (TradeWorkFlow == StrategyTradeWorkFlowState.Waiting || TradeWorkFlow == StrategyTradeWorkFlowState.GoLongSubmitOrderWorking || TradeWorkFlow == StrategyTradeWorkFlowState.GoShortSubmitOrderWorking || TradeWorkFlow == StrategyTradeWorkFlowState.GoOCOLongShortSubmitOrderWorking);
         }
 
+        public bool IsTradeWorkFlowCanEntryOCO()
+        {
+            return (TradeWorkFlow == StrategyTradeWorkFlowState.Waiting || TradeWorkFlow == StrategyTradeWorkFlowState.GoLongSubmitOrderWorking || TradeWorkFlow == StrategyTradeWorkFlowState.GoShortSubmitOrderWorking);
+        }
+
+
+        /// <summary>
+        /// TradeWorkFlowErrorProcess Set and start error workflow for immediate or deffered process /pseudo Async - allows caller to return
+        /// </summary>
+        /// <param name="forceImmediate"></param>
+        public virtual void TradeWorkFlowErrorProcess(bool forceImmediate=false)
+        {
+            TradeWorkFlow = StrategyTradeWorkFlowState.Error;
+
+            if (tracing)
+                Print("TradeWorkFlowErrorProcess() > forceImmediate " + forceImmediate.ToString());
+            
+            if (IsHistoricalTradeOrPlayBack || forceImmediate)
+                ProcessWorkFlow(TradeWorkFlow);
+
+            //deferred execution
+            if (ATSAlgoSystemState == AlgoSystemState.Realtime)
+                TradeWorkFlowOnMarketDataEnable();
+
+        }
+
+
+        public virtual void TradeWorkFlowTradeEntryOCO()
+        {
+            if (tracing)
+                Print("TradeWorkFlowTradeEntryOCO()");
+
+            lock (tradeWorkFlowTradeEntryOCOLockObject)
+            {
+                if (IsTradeWorkFlowCanEntryOCO())
+                {
+                    TradeWorkFlow = StrategyTradeWorkFlowState.GoOCOLongShort;
+                    ProcessWorkFlow();
+                }
+            }
+
+        }
+
+
         public virtual void TradeWorkFlowTradeExitLong()
         {
             if (tracing)
@@ -3152,16 +3209,25 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         private void SubmitOCOBreakoutInternal()
         {
+            SubmitOCOBreakout(false);
+        }
+
+
+        public void SubmitOCOBreakout(bool isUser = false)
+        {
             entryCount++;
             oCOId = "OCO-" + Guid.NewGuid().ToString();
             orderEntryPrior = orderEntry;
             orderEntry = null;
-            SubmitOCOBreakout(oCOId);
+            string signalLongName = orderEntryOCOLongName + "S#" + entryCount.ToString() + (IsHistorical ? ".H" : isUser ? ".U" : string.Empty);
+            string signalShortName = orderEntryOCOShortName + "S#" + entryCount.ToString() + (IsHistorical ? ".H" : isUser ? ".U" : string.Empty);
+            SubmitOCOBreakout(signalLongName, signalShortName, oCOId);
+
         }
 
-        public virtual void SubmitOCOBreakout(string oCOId)
+        public virtual void SubmitOCOBreakout(string signalLongName ,string signalShortName,  string oCOId)
         {
-            orderEntryOCOLong = SubmitOrderUnmanaged(0, OrderAction.Buy, OrderType.StopMarket, this.DefaultQuantity, 0, GetCurrentAsk(0) + 10 * TickSize, oCOId, "OCO-L");
+            orderEntryOCOLong = SubmitOrderUnmanaged(0, OrderAction.Buy, OrderType.StopMarket, this.DefaultQuantity, 0, GetCurrentAsk(0) + 10 * TickSize, oCOId, this.orderEntryName);
             orderEntryOCOShort = SubmitOrderUnmanaged(0, OrderAction.SellShort, OrderType.StopMarket, this.DefaultQuantity, 0, GetCurrentBid(0) - 10 * TickSize, oCOId, "OCO-S");
         }
 
