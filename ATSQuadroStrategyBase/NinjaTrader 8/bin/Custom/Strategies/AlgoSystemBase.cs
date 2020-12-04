@@ -438,7 +438,8 @@ namespace NinjaTrader.NinjaScript.Strategies
             TradeSignalExpiryInterval = 3;
             IsFlattenOnTransition = false;
             IsTracingModeRealtimeOnly = true;
-
+            PositionCloseModeTicksOffset = 3;
+            IsOnStrategyTradeWorkFlowStateEntryRejectionError=true;
         }
 
 
@@ -474,7 +475,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         IgnoreOverfill = true;
                         IsUnmanaged = true;
                         this.DefaultQuantity = 4;
-
+                        
 
                         break;
                     case State.Configure:
@@ -492,7 +493,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                         if (Account.Name == Account.BackTestAccountName)
                             ATSAlgoSystemMode = AlgoSystemMode.Test;
-                        else if (Account.Name == Account.PlaybackAccountName)
+                        else if (Cbi.Connection.PlaybackConnection != null && Account.Name == Account.PlaybackAccountName)
                         {
                             ATSAlgoSystemMode = AlgoSystemMode.Replay;
 
@@ -869,12 +870,6 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
         }
 
-
-
-
-
-
-
         protected override void OnOrderUpdate(Order order, double limitPrice, double stopPrice, int quantity, int filled, double averageFillPrice, OrderState orderState, DateTime time, ErrorCode error, string comment)
         {
             if (order == null) return;
@@ -884,11 +879,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 
             if (IsHistorical)
-            {
-                if (IsShowOrderLabels && order.OrderState == OrderState.Submitted)
-                    Draw.Text(this, order.Name, order.Name, 0, order.AverageFillPrice != 0 ? order.AverageFillPrice : order.StopPrice != 0 ? order.StopPrice : order.LimitPrice != 0 ? order.LimitPrice : GetCurrentAsk());
                 return;
-            }
 
             try
             {
@@ -960,7 +951,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         goto case OrderState.Working;
                     case OrderState.Cancelled:
                         if (order.HasOverfill) OnOrderOverFillDetected(order);
-                        if(TradeWorkFlow == StrategyTradeWorkFlowState.GoOCOLongShortSubmitOrderWorking || TradeWorkFlow == StrategyTradeWorkFlowState.GoLongSubmitOrderWorking || TradeWorkFlow == StrategyTradeWorkFlowState.GoShortSubmitOrderWorking)
+                        if (TradeWorkFlow == StrategyTradeWorkFlowState.GoOCOLongShortSubmitOrderWorking || TradeWorkFlow == StrategyTradeWorkFlowState.GoLongSubmitOrderWorking || TradeWorkFlow == StrategyTradeWorkFlowState.GoShortSubmitOrderWorking)
                         {
                             if (IsOrdersAnyActiveExist()) return;
                             TradeWorkFlow = StrategyTradeWorkFlowState.Waiting;
@@ -1243,6 +1234,15 @@ namespace NinjaTrader.NinjaScript.Strategies
                     //process error
                     TradeWorkFlowErrorProcess(false);
 
+                }
+                else 
+                {
+                    if (IsPositionCloseModeLimit && OrdersProfitTarget.Contains(execution.Order))
+                    {
+                        if (tradeWorkFlow == StrategyTradeWorkFlowState.GoLongClosedPositionsPending) TradeWorkFlow = StrategyTradeWorkFlowState.GoLongClosedPositionsConfirmed;
+                        else if (tradeWorkFlow == StrategyTradeWorkFlowState.GoShortClosedPositionsPending) TradeWorkFlow = StrategyTradeWorkFlowState.GoShortClosedPositionsConfirmed;
+                    }
+                    
                 }
             }
             catch (Exception ex)
@@ -1595,7 +1595,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 {
                     if (IsOrderCancelInspectEachOrDoBatchCancel)
                     {
-
+                        //call cancel as orderstate is unreliable check for nulls
                         if (IsOrderActiveCanCancel(orderStop1)) CancelOrder(orderStop1);
                         if (IsOrderActiveCanCancel(orderStop2)) CancelOrder(orderStop2);
                         if (IsOrderActiveCanCancel(orderStop3)) CancelOrder(orderStop3);
@@ -1618,19 +1618,27 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                     else  //batch
                     {
-                        lock (ordersActiveLockObject)
+                        bool ordersExist = false;
+                        lock (OrdersActive)
                         {
-                            if (IsOrdersActiveExist(OrdersActive))
-                            {
-                                Account.Cancel(OrdersActive);
-                                OrdersActive.Clear();
-                            }
+                            ordersExist = IsOrdersActiveExist(OrdersActive);
                         }
+                        if (!ordersExist) return;
+
+                        List<Order> activeOrders = OrdersActive.ToList<Order>();
+                        activeOrders = OrdersActive.ToList<Order>();
+
+                        lock (Account.Orders)
+                            Account.Cancel(OrdersActive);
+
+                        OrdersActive.Clear();
+
                     }
                 }
                 else //isRealtime
                 {
-                    Account.CancelAllOrders(this.Instrument);
+                    lock (Account.Orders)
+                        Account.CancelAllOrders(this.Instrument);
                 }
 
             }
@@ -1709,7 +1717,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         public bool IsOrdersProfitTargetActiveExist()
         {
-            lock (OrdersStopLoss)
+            lock (OrdersProfitTarget)
                 return IsOrdersActiveExist(this.OrdersProfitTarget);
         }
 
@@ -1964,8 +1972,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                         TradeWorkFlow = StrategyTradeWorkFlowState.GoLongCancelWorkingOrders;
                         goto case StrategyTradeWorkFlowState.GoLongCancelWorkingOrders;
                     }
-                    //orders to cancel test
-                    if (IsOrdersAnyActiveExist()) return ProcessWorkFlow(StrategyTradeWorkFlowState.GoLongCancelWorkingOrders);
+                    //orders to cancel test unless  IsPositionCloseModeLimit
+                    if (!IsPositionCloseModeLimit && IsOrdersAnyActiveExist()) return ProcessWorkFlow(StrategyTradeWorkFlowState.GoLongCancelWorkingOrders);
 
                     //position to close test
                     if (Position.Quantity != 0) return ProcessWorkFlow(StrategyTradeWorkFlowState.GoLongClosePositions);
@@ -2130,7 +2138,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                     break;
                 case StrategyTradeWorkFlowState.GoLongValidationRejected:
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode) return ProcessWorkFlow(StrategyTradeWorkFlowState.Waiting);
+                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode || !IsOnStrategyTradeWorkFlowStateEntryRejectionError) return ProcessWorkFlow(StrategyTradeWorkFlowState.Waiting);
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
                 case StrategyTradeWorkFlowState.GoLongSubmitOrderPending:
                     if (orderEntry.OrderState == OrderState.Filled)
@@ -2273,10 +2281,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                         goto case StrategyTradeWorkFlowState.GoShortCancelWorkingOrders;
                     }
 
-
                     //orders to cancel test
                     //if (Historical || OrdersActiveExist() || Account.Name.ToLower() == Connection.ReplayAccountName) 
-                    if (IsOrdersAnyActiveExist()) return ProcessWorkFlow(StrategyTradeWorkFlowState.GoShortCancelWorkingOrders);
+                    if (!IsPositionCloseModeLimit && IsOrdersAnyActiveExist()) return ProcessWorkFlow(StrategyTradeWorkFlowState.GoShortCancelWorkingOrders);
 
                     //position to close test
                     if (Position.Quantity != 0) return ProcessWorkFlow(StrategyTradeWorkFlowState.GoShortClosePositions);
@@ -2435,7 +2442,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                     break;
                 case StrategyTradeWorkFlowState.GoShortValidationRejected:
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode) return ProcessWorkFlow(StrategyTradeWorkFlowState.Waiting);
+                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode || !IsOnStrategyTradeWorkFlowStateEntryRejectionError) return ProcessWorkFlow(StrategyTradeWorkFlowState.Waiting);
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
                 case StrategyTradeWorkFlowState.GoShortSubmitOrderPending:
 
@@ -2881,7 +2888,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     CancelAllOrders();
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.ExitOnTransitionClosePositions);
                 case StrategyTradeWorkFlowState.ExitOnTransitionClosePositions:
-                    PositionCloseInternal();
+                    PositionCloseInternal(false);
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.ExitOnTransitionWaitingConfirmation);
                 case StrategyTradeWorkFlowState.ExitOnTransitionWaitingConfirmation:
                     //when bar closes the orders to exit will execute
@@ -2928,8 +2935,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                             Log("Unable to resolove error - unable to check and cancel orders - reseting alarm to try again", LogLevel.Error);
                             Log("Unable to resolve error - unable to check and cancel orders - reseting alarm to try again", LogLevel.Alert);
                             tradeWorkFlowRetryCount = 0;
-                            //                            Position.Close();
-                            //                            this.Disable();
                         }
                         //wait for event or timer
                     }
@@ -2938,8 +2943,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                 case StrategyTradeWorkFlowState.ErrorFlattenAll:
                     if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
                     {
-                        TradeWorkFlow = StrategyTradeWorkFlowState.ErrorFlattenAllPending;
-                        PositionCloseInternal();
+                        PositionCloseInternal(false);
+                        return ProcessWorkFlow(StrategyTradeWorkFlowState.ErrorFlattenAllConfirmed);
                         //event will return
                     }
                     else
@@ -2947,7 +2952,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         if (connectionStatusOrder == ConnectionStatus.Connected)
                         {
                             TradeWorkFlow = StrategyTradeWorkFlowState.ErrorFlattenAllPending;
-                            PositionCloseInternal();
+                            PositionCloseInternal(false);
                             TradeWorkFlowOnMarketDataEnable();
                             break;
                         }
@@ -2983,7 +2988,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                         Log("Unable verify ErrorFlattenAllPending - reseting alarm to try again", LogLevel.Error);
                         Log("Unable verify ErrorFlattenAllPending - reseting alarm to try again", LogLevel.Alert);
                         tradeWorkFlowRetryCount = 0;
-                        Account.Flatten(new[] { this.Instrument });
+                        Flatten();
+                        TradeWorkFlow = StrategyTradeWorkFlowState.Error;
                     }
 
                     break;
@@ -2995,7 +3001,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         {
                             Log("Unable to verify ErrorFlattenAllConfirmed", LogLevel.Error);
                             Log("Unable verify ErrorFlattenAllConfirmed - reseting state to error to try again", LogLevel.Alert);
-                            return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
+                            TradeWorkFlow = StrategyTradeWorkFlowState.Error;
                         }
                     }
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.CycleComplete);
@@ -3275,9 +3281,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                 return;
             }
 
-
-
-            //stopLossOrderConfirmations.Clear();
             lock (OrdersStopLoss)
                 OrdersStopLoss.Clear();
             orderStop1 = null;
@@ -3293,7 +3296,6 @@ namespace NinjaTrader.NinjaScript.Strategies
             SubmitStopLoss(this.orderEntry);
             //add stops to list set graphics
 
-            if (Account.Connection == Connection.PlaybackConnection) return;
 
             lock (OrdersStopLoss)
             {
@@ -3317,7 +3319,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                 return;
             }
 
-            OrdersProfitTarget.Clear();
+            lock (OrdersProfitTarget)
+                OrdersProfitTarget.Clear();
+
             orderTarget1 = null;
             orderTarget2 = null;
             orderTarget3 = null;
@@ -3330,6 +3334,8 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             SubmitProfitTarget(this.orderEntry, this.oCOId);
 
+
+
             lock (OrdersProfitTarget)
             {
                 if (orderTarget1 != null) OrdersProfitTarget.Add(orderTarget1);
@@ -3341,6 +3347,13 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
 
         private void PositionCloseInternal()
+        {
+
+            PositionCloseInternal(isPositionCloseModeLimit: IsPositionCloseModeLimit);
+        }
+
+
+        private void PositionCloseInternal(bool isPositionCloseModeLimit)
         {
             if (tracing)
                 Print("PositionCloseInternal()");
@@ -3355,7 +3368,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 if (isLockPositionClose) return;
                 isLockPositionClose = true;
             }
-            PositionClose();
+            PositionClose(isPositionCloseModeLimit: isPositionCloseModeLimit);
             isLockPositionClose = false;
 
         }
@@ -3368,19 +3381,46 @@ namespace NinjaTrader.NinjaScript.Strategies
         public void Flatten()
         {
             CancelAllOrders();
-            PositionClose();
-            TradeWorkFlow = StrategyTradeWorkFlowState.Waiting;
+            PositionClose(false);
         }
 
 
-        public virtual void PositionClose()
+        public virtual void PositionClose(bool isPositionCloseModeLimit = false)
         {
-
 
             if (Position.MarketPosition == MarketPosition.Long)
             {
                 if (tracing)
                     Print("PositionClose() > MarketPosition.Long");
+
+                if (isPositionCloseModeLimit)
+                {
+
+                    List<Order> ordersProfitTarget;
+                    lock (OrdersProfitTarget)
+                        ordersProfitTarget = OrdersProfitTarget.Where(o => IsOrderIsActive(o)).ToList<Order>();
+
+                    bool canDoCloseProfitOrders = (ordersProfitTarget.Count() > 0);
+
+                    if (canDoCloseProfitOrders)
+                        canDoCloseProfitOrders = (Position.Quantity == ordersProfitTarget.Sum(o => o.Quantity));
+
+                    if (canDoCloseProfitOrders)
+                    {
+                        if (tracing)
+                            Print("PositionClose() > CloseWithProfitOrders");
+
+                        foreach (Order profitOrder in ordersProfitTarget)
+                        {
+                            ChangeOrder(profitOrder, profitOrder.Quantity, GetCurrentBid(0) - PositionCloseModeTicksOffset * TickSize, 0);
+                        }
+                        //return if success
+                        return;
+                    }
+                }
+
+                if (tracing)
+                    Print("PositionClose() > UseCloseOrder");
 
                 string orderEntryName = orderEntry != null ? orderEntry.Name.Replace(arrowUp, string.Empty) : "Long";
                 orderEntryName = orderEntryName.Substring(3);
@@ -3391,6 +3431,34 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 if (tracing)
                     Print("PositionClose() > MarketPosition.Short");
+
+
+                if (isPositionCloseModeLimit)
+                {
+
+                    List<Order> ordersProfitTarget;
+                    lock (OrdersProfitTarget)
+                        ordersProfitTarget = OrdersProfitTarget.Where(o => IsOrderIsActive(o)).ToList<Order>();
+
+                    bool canDoCloseProfitOrders = (ordersProfitTarget.Count() > 0);
+
+                    if (canDoCloseProfitOrders)
+                        canDoCloseProfitOrders = (Position.Quantity == ordersProfitTarget.Sum(o => o.Quantity));
+
+                    if (canDoCloseProfitOrders)
+                    {
+                        if (tracing)
+                            Print("PositionClose() > CloseWithProfitOrders");
+
+                        foreach (Order profitOrder in ordersProfitTarget)
+                        {
+                            ChangeOrder(profitOrder, profitOrder.Quantity, GetCurrentAsk(0) + PositionCloseModeTicksOffset * TickSize, 0);
+                        }
+                        //return if success
+                        return;
+                    }
+                }
+
 
                 string orderEntryName = orderEntry != null ? orderEntry.Name.Replace(arrowDown, string.Empty) : "Short";
                 orderEntryName = orderEntryName.Substring(3);
@@ -4077,12 +4145,20 @@ namespace NinjaTrader.NinjaScript.Strategies
             get; set;
         }
 
-        [Display(GroupName = "Zystem Params", Order = 0, Name = "IsTracingOpenFileOnError", Description = "IsTracingOpenFileOnError")]
+        [Display(GroupName = "Zystem Params", Order = 0, Name = "DEBUG - IsTracingOpenFileOnError", Description = "IsTracingOpenFileOnError")]
         public bool IsTracingOpenFileOnError { get; set; }
 
 
-        [Display(GroupName = "Zystem Params", Order = 0, Name = "IsSimplePrintMode", Description = "IsSimplePrintMode")]
+        [Display(GroupName = "Zystem Params", Order = 0, Name = "DEBUG - IsSimplePrintMode", Description = "IsSimplePrintMode")]
         public bool IsSimplePrintMode { get; set; }
+
+
+        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsPositionCloseModeLimit", Description = "False:CloseOrder, True:TryLimitExits")]
+        public bool IsPositionCloseModeLimit { get; set; }
+
+
+        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - PositionCloseModeTicksOffset", Description = "PositionCloseModeTicksOffset for IsPositionCloseMode ticks past price to fill a limit")]
+        public int PositionCloseModeTicksOffset { get; set; }
 
 
 
@@ -4133,7 +4209,6 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
 
 
-
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - TradeWorkFlowRetryAlarm", Description = "Trade Work Flow Retry Alarm 1 to 5 - the number of times to wait for confirmation or retry an action before going to Error state - cancel all and flatten")]
         public int TradeWorkFlowRetryAlarm
         {
@@ -4151,6 +4226,9 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsStrategyUnSafeMode", Description = "WARNING do not use this!!! IsStrategyUnSafeMode allows faster operation for scalping and less latency on entry - however this mode is only for very competent experienced traders as this can result in oder fills and unexpected position fills and order balances... Always keep this off unless you fully understand the risks are yours, and you are an experienced trader in attendance and plan to interact and control any order issues, positions which might result in unsafe mode due to fast market reversal and other anomalies")]
         public bool IsStrategyUnSafeMode { get; set; }
 
+
+        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsOnStrategyTradeWorkFlowStateEntryRejectionError", Description = "IsOnStrategyTradeWorkFlowStateEntryRejectionError switch on if you want to hnalde rejections to go long or short in the trade workflow - leave off to ignore")]
+        public bool IsOnStrategyTradeWorkFlowStateEntryRejectionError { get; set; }
 
 
 
