@@ -53,6 +53,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Name = "ATSSampleMACrossOver";
                 Fast = 10;
                 Slow = 25;
+                TradeSignalCrossoverMode = 1;
             }
             else if (State == State.Configure)
             {
@@ -95,11 +96,32 @@ namespace NinjaTrader.NinjaScript.Strategies
             //Trade Engine Signal State to pass in
             AlgoSignalAction = AlgoSignalAction.None;
 
-            //test longs
-            if (CrossAbove(smaFast, smaSlow, 1))
-                AlgoSignalAction = AlgoSignalAction.GoLong;
-            else if (CrossBelow(smaFast, smaSlow, 1))
-                AlgoSignalAction = AlgoSignalAction.GoShort;
+            //DoubleMACrossover mode
+            if (TradeSignalCrossoverMode == 1)
+            {
+                if (CrossAbove(smaFast, smaSlow, 1))
+                    AlgoSignalAction = AlgoSignalAction.GoLong;
+                else if (CrossBelow(smaFast, smaSlow, 1))
+                    AlgoSignalAction = AlgoSignalAction.GoShort;
+            }
+
+            //PullbackOCO mode
+            if (AlgoSignalAction == AlgoSignalAction.None && TradeSignalPullBackOCOMode > 0)
+            {
+                if (smaFast[0] > smaSlow[0])
+                {
+                    if (Close[0] < smaFast[0])
+                        AlgoSignalAction = AlgoSignalAction.GoOCOEntry;
+                }
+                else if (smaFast[0] < smaSlow[0])
+                {
+                    if (Close[0] > smaFast[0])
+                        AlgoSignalAction = AlgoSignalAction.GoOCOEntry;
+                }
+
+                //if mode 2 wait for flat  -reset any
+                if (TradeSignalPullBackOCOMode == 2 && Position.MarketPosition != MarketPosition.Flat) AlgoSignalAction = AlgoSignalAction.None;
+            }
 
             if (base.Position.MarketPosition != MarketPosition.Flat)
             {
@@ -353,7 +375,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         shortStopPrice = Math.Max(GetCurrentAsk(0) + TickSize, shortStopPrice);
                         shortStopPrice = Instrument.MasterInstrument.RoundToTickSize(shortStopPrice);
 
-                        //test the stoplosses are active and can be changed, compate stop price and then modify the order if required
+                        //test the stoplosses are active and can be changed, compare stop price and then modify the order if required
                         if (base.IsOrderActiveCanChangeOrCancel(base.orderStop1))
                         {
                             if (this.shortStopPrice < base.orderStop1.StopPrice)
@@ -408,6 +430,21 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Display(ResourceType = typeof(Custom.Resource), Name = "Slow", GroupName = "NinjaScriptStrategyParameters", Order = 1)]
         public int Slow
         { get; set; }
+
+
+        [Range(0, 1), NinjaScriptProperty]
+        [Display(ResourceType = typeof(Custom.Resource), Name = "SignalType1", Description = "0:off, 1:Double MA Crossover", GroupName = "NinjaScriptStrategyParameters", Order = 2)]
+        public int TradeSignalCrossoverMode
+        { get; set; }
+
+
+        [Range(0, 2), NinjaScriptProperty]
+        [Display(ResourceType = typeof(Custom.Resource), Name = "SignalType2", Description = "0:off, 1:CloseAndOCO, 2:OCOWaitForFlat", GroupName = "NinjaScriptStrategyParameters", Order = 3)]
+        public int TradeSignalPullBackOCOMode
+        { get; set; }
+
+
+
         #endregion
 
     }
