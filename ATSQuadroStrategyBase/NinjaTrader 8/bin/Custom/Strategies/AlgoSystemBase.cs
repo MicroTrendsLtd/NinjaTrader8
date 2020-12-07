@@ -294,6 +294,8 @@ namespace NinjaTrader.NinjaScript.Strategies
     {
         #region variables,constants,EventHandlers
 
+        //internal System.Windows.Threading.DispatcherTimer timer;
+
         private double lastPrice;
         private DateTime onMarketDataTimeNextAllowed;
         private DateTime onMarketDataBidTimeNextAllowed;
@@ -324,7 +326,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         protected bool tEQTimerStarted = false;
 
         protected long tradeWorkFlowTimerTickCounter = 0;
-        protected int tradeWorkFlowTimerInterval = 1000;
+        protected int tradeWorkFlowTimerInterval = 3;
         protected int tradeWorkFlowTimerIntervalReset = 100;
         protected int tradeWorkFlowAlarmTimeOutSeconds = 10;
         protected int tradeWorkFlowRetryAlarm = 3;
@@ -439,7 +441,11 @@ namespace NinjaTrader.NinjaScript.Strategies
             IsFlattenOnTransition = false;
             IsTracingModeRealtimeOnly = true;
             PositionCloseModeTicksOffset = 3;
-            IsOnStrategyTradeWorkFlowStateEntryRejectionError=true;
+            IsOnStrategyTradeWorkFlowStateEntryRejectionError = true;
+            IsTradeWorkFlowMonitorOn = true;
+            TradeWorkFlowTimerInterval = 3;
+            IsOrderCancelInspectEachOrDoBatchCancel = true;
+            IsOrderCancelStopsOnly = true;
         }
 
 
@@ -475,7 +481,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         IgnoreOverfill = true;
                         IsUnmanaged = true;
                         this.DefaultQuantity = 4;
-                        
+
 
                         break;
                     case State.Configure:
@@ -663,7 +669,6 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                         break;
                     case State.Terminated:
-
                         break;
                     case State.Finalized:
                         break;
@@ -699,6 +704,9 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 
         }
+
+
+
 
         protected override void OnAccountItemUpdate(Account account, AccountItem accountItem, double value)
         {
@@ -848,9 +856,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                         //Reset to avoid duplicate action
                         AlgoSignalAction = AlgoSignalAction.None;
 
+                        //delay then process q
                         TEQOnMarketDataEnable();
                         return;
                     }
+                    //if return here no fallback q
+                    return;
                 }
                 lock (TEQ)
                 {
@@ -1235,14 +1246,14 @@ namespace NinjaTrader.NinjaScript.Strategies
                     TradeWorkFlowErrorProcess(false);
 
                 }
-                else 
+                else
                 {
                     if (IsPositionCloseModeLimit && OrdersProfitTarget.Contains(execution.Order))
                     {
                         if (tradeWorkFlow == StrategyTradeWorkFlowState.GoLongClosedPositionsPending) TradeWorkFlow = StrategyTradeWorkFlowState.GoLongClosedPositionsConfirmed;
                         else if (tradeWorkFlow == StrategyTradeWorkFlowState.GoShortClosedPositionsPending) TradeWorkFlow = StrategyTradeWorkFlowState.GoShortClosedPositionsConfirmed;
                     }
-                    
+
                 }
             }
             catch (Exception ex)
@@ -1326,28 +1337,41 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
 
 
-
-                //unjam StrategyTradeWorkFlowState in case its stuck
-                if ((!IsTradeWorkFlowReady() || TradeWorkFlow == StrategyTradeWorkFlowState.Error) && TradeWorkFlowLastChanged < DateTime.Now.AddSeconds(-1 * TradeWorkFlowTimeOut))
+                //if !IsTradeWorkFlowReady() and we get an TradeWorkFlowTimeOut - set WF to Error and 
+                if (!IsTradeWorkFlowReady() && TradeWorkFlowLastChanged < DateTime.Now.AddSeconds(-1 * TradeWorkFlowTimeOut))
                 {
                     if (tracing)
                         Print("OnMarketData >> TWF ErrorTimeOut");
 
                     TradeWorkFlow = StrategyTradeWorkFlowState.ErrorTimeOut;
-                    ProcessWorkFlow(StrategyTradeWorkFlowState.ErrorTimeOut);
+                    //ProcessWorkFlow(StrategyTradeWorkFlowState.ErrorTimeOut);
+
+                    //trying TriggerCustomEvent(ProcessWorkFlow, TradeWorkFlow) so all pointers line up to avoid excetions in time and series
+                    TriggerCustomEvent(ProcessWorkFlow, TradeWorkFlow);
+
+                    this.inOnMarketData = false;
+                    return;
+                }
+
+                //call back in to workflow
+                if (IsTradeWorkFlowReady() && IsTradeWorkFlowMonitorOn && IsTradeWorkFlowOnMarketData && Now >= tradeWorkFlowNextTimeValid)
+                {
+                    if (tracing)
+                        Print("OnMarketData >> TWF >> ProcessWorkFlow");
+
+                    //set this we dont want to come back here too quick
+                    tradeWorkFlowNextTimeValid = Now.AddSeconds(TradeWorkFlowTimerInterval);
+
+
+                    //trying TriggerCustomEvent(ProcessWorkFlow, TradeWorkFlow) so all pointers line up to avoid excetions in time and series
+                    if (!IsTradeWorkFlowReady())
+                     TriggerCustomEvent(ProcessWorkFlow, TradeWorkFlow);
+
                     this.inOnMarketData = false;
                     return;
                 }
 
 
-                //process the trade workflow state engine - move state on in case its holding up signals execution
-                if (IsTradeWorkFlowOnMarketData && Now >= tradeWorkFlowNextTimeValid)
-                {
-                    tradeWorkFlowNextTimeValid = Now.AddMilliseconds(TradeWorkFlowTimerInterval);
-                    if (tracing)
-                        Print("OnMarketData >> TWF");
-                    ProcessWorkFlow();
-                }
 
                 //process the signal q
                 if (IsTEQOnMarketData && Now >= tEQNextTimeValid)
@@ -1356,15 +1380,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                     if (tracing)
                         Print("OnMarketData >> TEQ");
 
+                    //no lock needed here on TEQ - it can be rouhgly accurate ProcessTradeEventQueue will work it out
+                    if (IsTradeWorkFlowReady() && TEQ.Count > 0)
+                        TriggerCustomEvent(ProcessTradeEventQueue, null);
 
-                    bool isTEQPopulated = false;
-                    lock (TEQ)
-                        isTEQPopulated = TEQ.Count > 0;
-
-                    if (isTEQPopulated)
-                        ProcessTradeEventQueue();
-                    else if (!IsRealtimeTradingUseQueue) TEQOnMarketDataDisable();
-
+                    this.inOnMarketData = false;
+                    return;
 
 
                 }
@@ -1381,6 +1402,11 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 
         }
+
+
+
+
+
 
 
 
@@ -1430,14 +1456,15 @@ namespace NinjaTrader.NinjaScript.Strategies
         #endregion
         #region timers
 
-        private void TradeWorkFlowOnMarketDataEnable(int mSeconds)
+        private void TradeWorkFlowOnMarketDataEnable(int seconds)
         {
+
             if (IsTradeWorkFlowOnMarketData) return;
 
             if (tracing)
                 Print("TradeWorkFlowOnMarketDataEnable");
 
-            tradeWorkFlowNextTimeValid = Now.AddMilliseconds(mSeconds);
+            tradeWorkFlowNextTimeValid = Now.AddSeconds(seconds);
             IsTradeWorkFlowOnMarketData = true;
 
         }
@@ -1495,6 +1522,8 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 
         #endregion
+
+
         #region orderHelpers
 
         /// <summary>
@@ -1583,7 +1612,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
 
 
-        public void CancelAllOrders(bool oCOLetCancel = false)
+        public void CancelAllOrders(bool forceRealtimeAccountCancelAllOrders = false)
         {
 
             if (tracing)
@@ -1591,55 +1620,60 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             try
             {
-                if (IsHistoricalTradeOrPlayBack)
+
+                if (forceRealtimeAccountCancelAllOrders)
                 {
-                    if (IsOrderCancelInspectEachOrDoBatchCancel)
-                    {
-                        //call cancel as orderstate is unreliable check for nulls
-                        if (IsOrderActiveCanCancel(orderStop1)) CancelOrder(orderStop1);
-                        if (IsOrderActiveCanCancel(orderStop2)) CancelOrder(orderStop2);
-                        if (IsOrderActiveCanCancel(orderStop3)) CancelOrder(orderStop3);
-                        if (IsOrderActiveCanCancel(orderStop4)) CancelOrder(orderStop4);
-
-                        //these dont need to cancel if order stop cancel called - but just in case we have the option to put in a mode to do so
-                        if (oCOLetCancel)
-                        {
-                            if (IsOrderActiveCanCancel(orderTarget1)) CancelOrder(orderTarget1);
-                            if (IsOrderActiveCanCancel(orderTarget2)) CancelOrder(orderTarget2);
-                            if (IsOrderActiveCanCancel(orderTarget3)) CancelOrder(orderTarget3);
-                            if (IsOrderActiveCanCancel(orderTarget4)) CancelOrder(orderTarget4);
-                        }
-
-                        if (IsOrderActiveCanCancel(orderEntry)) CancelOrder(orderEntry);
-                        if (IsOrderActiveCanCancel(orderEntryOCOLong)) CancelOrder(orderEntryOCOLong);
-                        if (IsOrderActiveCanCancel(orderEntryOCOShort)) CancelOrder(orderEntryOCOShort);
-
-
-                    }
-                    else  //batch
-                    {
-                        bool ordersExist = false;
-                        lock (OrdersActive)
-                        {
-                            ordersExist = IsOrdersActiveExist(OrdersActive);
-                        }
-                        if (!ordersExist) return;
-
-                        List<Order> activeOrders = OrdersActive.ToList<Order>();
-                        activeOrders = OrdersActive.ToList<Order>();
-
-                        lock (Account.Orders)
-                            Account.Cancel(OrdersActive);
-
-                        OrdersActive.Clear();
-
-                    }
+                    Account.CancelAllOrders(this.Instrument);
+                    return;
                 }
-                else //isRealtime
+
+                if (IsHistoricalTradeOrPlayBack || IsOrderCancelInspectEachOrDoBatchCancel)
                 {
-                    lock (Account.Orders)
-                        Account.CancelAllOrders(this.Instrument);
+                    //call cancel as orderstate is unreliable check for nulls
+                    if (IsOrderActiveCanCancel(orderStop1)) CancelOrder(orderStop1);
+                    if (IsOrderActiveCanCancel(orderStop2)) CancelOrder(orderStop2);
+                    if (IsOrderActiveCanCancel(orderStop3)) CancelOrder(orderStop3);
+                    if (IsOrderActiveCanCancel(orderStop4)) CancelOrder(orderStop4);
+
+                    //these dont need to cancel if order stop cancel called - but just in case we have the option to put in a mode to do so
+                    if (IsOrderCancelStopsOnly)
+                    {
+                        if (IsOrderActiveCanCancel(orderTarget1)) CancelOrder(orderTarget1);
+                        if (IsOrderActiveCanCancel(orderTarget2)) CancelOrder(orderTarget2);
+                        if (IsOrderActiveCanCancel(orderTarget3)) CancelOrder(orderTarget3);
+                        if (IsOrderActiveCanCancel(orderTarget4)) CancelOrder(orderTarget4);
+                    }
+
+                    if (IsOrderActiveCanCancel(orderEntry)) CancelOrder(orderEntry);
+                    if (IsOrderActiveCanCancel(orderEntryOCOLong)) CancelOrder(orderEntryOCOLong);
+                    if (IsOrderActiveCanCancel(orderEntryOCOShort)) CancelOrder(orderEntryOCOShort);
+
+
                 }
+                else  //batch
+                {
+                    bool ordersExist = false;
+                    lock (OrdersActive)
+                    {
+                        ordersExist = IsOrdersActiveExist(OrdersActive);
+                    }
+                    if (!ordersExist) return;
+
+                    List<Order> activeOrders = OrdersActive.ToList<Order>();
+
+
+                    foreach (Order order in activeOrders)
+                    {
+                        if (tracing)
+                            Print("CancelAllOrders() > Order" + order.ToString());
+
+                        CancelOrder(order);
+                    }
+
+                    OrdersActive.Clear();
+
+                }
+
 
             }
             catch (Exception ex)
@@ -1820,32 +1854,33 @@ namespace NinjaTrader.NinjaScript.Strategies
                 lockedQueue = true;
             }
             #endregion
-            //external locking required in case this is being set onBarUpdate or vias User
-            lock (q)
-            {
-                if (q.Count == 0)
-                {
-                    lockedQueue = false;
-                    return;
-                }
-                else if (!IsTradeWorkFlowReady())
-                {
-                    if (tracing)
-                        Print("ProcessTradeEventQueue(Queue count " + q.Count.ToString() + " TradeWF " + tradeWorkFlow.ToString() + "  ) ");
 
-                    if (State == State.Realtime)
-                    {
-                        TEQOnMarketDataEnable();
-                    }
-                    lockedQueue = false;
-                    return;
-                }
+            //stop onMarketData from sending more calls to process Q
+            TEQOnMarketDataDisable();
+
+            
+            //no lock for q here we dont care if it changes after this section before the next
+            if (q.Count == 0)
+            {
+                lockedQueue = false;
+                return;
             }
+            else if (!IsTradeWorkFlowReady())
+            {
+                if (tracing)
+                    Print("ProcessTradeEventQueue(Queue count " + q.Count.ToString() + " TradeWF " + tradeWorkFlow.ToString() + "  ) ");
+
+                TEQOnMarketDataEnable();
+                lockedQueue = false;
+                return;
+            }
+            
 
             #region process Queue
             try
             {
                 AlgoSignalActionMsq a = null;
+                //lock for iteration and release fine grain external lock process action after
                 lock (q)
                 {
                     while (q.Count > 1)
@@ -1895,11 +1930,15 @@ namespace NinjaTrader.NinjaScript.Strategies
                             if (!this.IsTradeWorkFlowCanExit())
                                 goto default;
                             break;
+                        case AlgoSignalAction.GoOCOEntry:
+                            if (!this.IsTradeWorkFlowCanEntryOCO())
+                                goto default;
+                            break;
                         default:
                             //if here then go around again
                             Print("ProcessTradeEventQueue> Retry Later> AlgoSignalActions " + a.ToString());
                             lockedQueue = false;
-                            TEQOnMarketDataDisable();
+                            TEQOnMarketDataEnable();
                             return;
                     }
                     //if still here then dQ process to do
@@ -1924,6 +1963,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                         break;
                     case AlgoSignalAction.ExitTradeShort:
                         TradeWorkFlowTradeExitShort();
+                        break;
+                    case AlgoSignalAction.GoOCOEntry:
+                        TradeWorkFlowTradeEntryOCO();
                         break;
                 }
 
@@ -3104,6 +3146,10 @@ namespace NinjaTrader.NinjaScript.Strategies
             if (tracing)
                 Print("TradeWorkFlowTradeEntryOCO()");
 
+
+            if (Position.MarketPosition != MarketPosition.Flat) return;
+
+
             lock (tradeWorkFlowTradeEntryOCOLockObject)
             {
                 if (IsTradeWorkFlowCanEntryOCO())
@@ -3191,22 +3237,16 @@ namespace NinjaTrader.NinjaScript.Strategies
             if (tracing)
                 Print("TradeWorkFlowNewOrder tradeDirection " + tradeDirection.ToString());
 
-            //Scenarios to consider
-            //Enqueue GoLong WF=GoShortSubmitOrderWorking
-            //Enqueue GoShort WF=Waiting - go ahead
-            //if   ATSAlgoSystemState = AlgoSystemState.HisTradeRT;  then make sure the old orders are cancelled etc... as it cant see them
-
-
             lock (tradeWorkFlowNewOrderLockObject)
             {
-                if (tradeDirection == StrategyTradeWorkFlowState.GoLong && !IsTradeWorkFlowCanGoLong())
+                if (tradeDirection == StrategyTradeWorkFlowState.GoLong && Position.MarketPosition != MarketPosition.Long && !IsTradeWorkFlowCanGoLong())
                 {
                     if (tracing)
                         Print("TradeWorkFlowNewOrder rejected " + tradeDirection.ToString());
 
                     return;
                 }
-                else if (tradeDirection == StrategyTradeWorkFlowState.GoShort && !IsTradeWorkFlowCanGoShort())
+                else if (tradeDirection == StrategyTradeWorkFlowState.GoShort && Position.MarketPosition != MarketPosition.Short && !IsTradeWorkFlowCanGoShort())
                 {
                     if (tracing)
                         Print("TradeWorkFlowNewOrder rejected " + tradeDirection.ToString());
@@ -3348,7 +3388,6 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         private void PositionCloseInternal()
         {
-
             PositionCloseInternal(isPositionCloseModeLimit: IsPositionCloseModeLimit);
         }
 
@@ -3380,8 +3419,9 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         public void Flatten()
         {
-            CancelAllOrders();
+            CancelAllOrders(true);
             PositionClose(false);
+            //Position.Close();
         }
 
 
@@ -3426,6 +3466,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 orderEntryName = orderEntryName.Substring(3);
                 orderClose = null;
                 orderClose = SubmitOrderUnmanaged(0, OrderAction.Sell, OrderType.Market, Position.Quantity, 0, 0, string.Empty, arrowDown + closeOrderName + orderEntryName);
+
             }
             else if (Position.MarketPosition == MarketPosition.Short)
             {
@@ -3647,9 +3688,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                 PrintTo = PrintTo.OutputTab1;
 
                 //account bars and other items not available here in this state
-
-                txt = string.Format("{0} {1} {2} {3} {4}:> {5}", txt, State.ToString(), PositionStateString, ATSAlgoSystemState.ToString(), TradeWorkFlow.ToString(), msg);
-                base.Print(txt);
+                txt = string.Format("{0} {1} {2} {3} {4}", txt, State.ToString(), PositionStateString, ATSAlgoSystemState.ToString(), TradeWorkFlow.ToString());
+                base.Print(string.Format("{0}:>{1}", txt, msg));
 
                 if (IsSimplePrintMode) return;
 
@@ -3697,14 +3737,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                 }
 
                 txt += "|WF=" + this.tradeWorkFlow.ToString()
-                + "|S=" + ATSAlgoSystemState.ToString()
-                + "|: "
-                + msg;
+                + "|S=" + ATSAlgoSystemState.ToString();
 
 
+                base.Print(string.Format("{0}:>{1}", txt, msg));
 
 
-                base.Print(txt);
 
                 if (tracing)
                     TraceToFile(txt);
@@ -4161,6 +4199,14 @@ namespace NinjaTrader.NinjaScript.Strategies
         public int PositionCloseModeTicksOffset { get; set; }
 
 
+        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsTradeWorkFlowMonitorOnMarketOn", Description = "")]
+        public bool IsTradeWorkFlowMonitorOn
+        {
+            get; set;
+        }
+
+
+
 
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - Realtime Trading Signal Queue", Description = "Realtime Trading Use Queued Signals: True/False - When using small timeseries or every tick this can smooth out performance as signals are queued and the last in is executed others are purged")]
         public bool IsRealtimeTradingUseQueue
@@ -4194,11 +4240,11 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 
 
-        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - MS TradeWorkFlowTimerInterval", Description = "Trade Work Flow Timer Interval Seconds 1 to 10")]
+        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - MS TradeWorkFlowTimerInterval", Description = "Trade Work Flow Timer Interval Seconds 3 to 10")]
         public int TradeWorkFlowTimerInterval
         {
             get { return tradeWorkFlowTimerInterval; }
-            set { tradeWorkFlowTimerInterval = Math.Max(100, Math.Min(3000, value)); }
+            set { tradeWorkFlowTimerInterval = Math.Max(3, Math.Min(10, value)); }
         }
 
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - MS TradeWorkFlowTimerInterval Reset", Description = "Trade Work Flow Timer Cycle Reset to allow new trade workflow action - Interval Seconds 1 to 10")]

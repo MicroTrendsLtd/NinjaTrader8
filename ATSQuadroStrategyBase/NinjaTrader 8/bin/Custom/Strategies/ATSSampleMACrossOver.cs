@@ -99,9 +99,9 @@ namespace NinjaTrader.NinjaScript.Strategies
             //DoubleMACrossover mode
             if (TradeSignalCrossoverMode == 1)
             {
-                if (CrossAbove(smaFast, smaSlow, 1))
+                if (base.Position.MarketPosition != MarketPosition.Long && CrossAbove(smaFast, smaSlow, 1))
                     AlgoSignalAction = AlgoSignalAction.GoLong;
-                else if (CrossBelow(smaFast, smaSlow, 1))
+                else if (base.Position.MarketPosition != MarketPosition.Short && CrossBelow(smaFast, smaSlow, 1))
                     AlgoSignalAction = AlgoSignalAction.GoShort;
             }
 
