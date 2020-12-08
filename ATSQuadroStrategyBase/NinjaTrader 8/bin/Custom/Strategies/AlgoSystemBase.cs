@@ -237,6 +237,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         private DefaultTraceListener tracing = new DefaultTraceListener();
         public static DebugTraceHelper Default = new DebugTraceHelper();
+        private static readonly object logLockObject = new object();
 
         public DefaultTraceListener Tracing
         {
@@ -256,9 +257,11 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         public static void WriteLine(string message)
         {
-
-            Default.Tracing.LogFileName = string.Format("{0}\\trace\\ATS.NT8.{1}{2}{3}.Trace.txt", NinjaTrader.Core.Globals.UserDataDir, DateTime.Now.Year.ToString("d2"), DateTime.Now.Month.ToString("d2"), DateTime.Now.Day.ToString("d2"));
-            Default.Tracing.WriteLine(message);
+            lock (logLockObject)
+            {
+                Default.Tracing.LogFileName = string.Format("{0}\\trace\\ATS.NT8.{1}{2}{3}.Trace.txt", NinjaTrader.Core.Globals.UserDataDir, DateTime.Now.Year.ToString("d2"), DateTime.Now.Month.ToString("d2"), DateTime.Now.Day.ToString("d2"));
+                Default.Tracing.WriteLine(message);
+            }
         }
 
         public static void OpenTraceFile()
@@ -293,7 +296,7 @@ namespace NinjaTrader.NinjaScript.Strategies
     {
         #region variables,constants,EventHandlers
 
-        
+
         private bool isPositionCloseModeLimitExecuted = false;
         private double lastPrice;
         private DateTime onMarketDataTimeNextAllowed;
@@ -1264,7 +1267,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     TradeWorkFlowErrorProcess(false);
 
                 }
-                else if (execution.Order.OrderType == OrderType.Limit && (tradeWorkFlow == StrategyTradeWorkFlowState.GoLongClosedPositionsPending || tradeWorkFlow == StrategyTradeWorkFlowState.GoShortClosedPositionsPending) && IsPositionCloseModeLimit) 
+                else if (execution.Order.OrderType == OrderType.Limit && (tradeWorkFlow == StrategyTradeWorkFlowState.GoLongClosedPositionsPending || tradeWorkFlow == StrategyTradeWorkFlowState.GoShortClosedPositionsPending) && IsPositionCloseModeLimit)
                 {
                     if (tracing)
                         Print("OnExecution > IsPositionCloseModeLimit > order:" + execution.Order.Name);
