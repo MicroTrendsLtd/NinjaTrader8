@@ -337,11 +337,12 @@ namespace NinjaTrader.NinjaScript.Strategies
         protected bool tEQTimerInProgress = false;
         protected bool tEQTimerStarted = false;
 
+        protected int tradeWorkFlowTimeOut = 10;
         protected long tradeWorkFlowTimerTickCounter = 0;
         protected int tradeWorkFlowTimerInterval = 3;
-        protected int tradeWorkFlowTimerIntervalReset = 100;
+        //protected int tradeWorkFlowTimerIntervalReset = 100;
         protected int tradeWorkFlowAlarmTimeOutSeconds = 10;
-        protected int tradeWorkFlowRetryAlarm = 3;
+        protected int tradeWorkFlowRetryAlarm = 5;
         protected int tradeWorkFlowRetryCount = 0;
 
         protected readonly object lockTradeWorkFlowTimerObject = new Object();
@@ -757,6 +758,9 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         protected override void OnAccountItemUpdate(Account account, AccountItem accountItem, double value)
         {
+            if(tracing)
+             Print(string.Format("OnAccountItemUpdate({0},{1})", accountItem.ToString(), value));
+
             accountDenomination = account.Denomination;
         }
 
@@ -1690,7 +1694,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         public virtual bool CancelOrdersIfExists(IEnumerable<Order> orders)
         {
             if (tracing)
-                Print("CancelOrders()");
+                Print("CancelOrdersIfExists()");
 
             bool result = false;
 
@@ -3126,7 +3130,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                         if (connectionStatusOrder == ConnectionStatus.Connected)
                         {
                             CancelOrdersIfExists(OrdersActive);
-                            PositionCloseInternal(false);
                             TradeWorkFlow = StrategyTradeWorkFlowState.ErrorFlattenAll;
 
                         }
@@ -3219,14 +3222,14 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.CycleComplete);
                 case StrategyTradeWorkFlowState.ExitOnCloseOrderPending:
-                    if (State == State.Realtime) break;
+                    if (IsHistoricalTradeOrPlayBack) break;
 
                     TradeWorkFlow = StrategyTradeWorkFlowState.ExitOnCloseWaitingConfirmation;
                     TradeWorkFlowOnMarketDataEnable();
 
                     break;
                 case StrategyTradeWorkFlowState.ExitOnCloseWaitingConfirmation:
-                    if (State == State.Realtime) break;
+                    if (IsHistoricalTradeOrPlayBack) break;
 
                     if (IsOrdersAnyActiveExist() || Position.MarketPosition != MarketPosition.Flat)
                     {
@@ -4428,10 +4431,10 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
 
 
-        private int tradeWorkFlowTimeOut = 10;
+       
         //private bool entryOrderInFlightCollision;
 
-        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - TradeWorkFlowTimeOut S", Description = "Trade Work Flow Time Out Seconds 10 - if  Workflow is stuck for time out seconds set state to error 1 to 30 seconds.")]
+        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - TradeWorkFlowTimeOut S", Description = "Trade Work Flow Time Out Seconds 30 - if  Workflow is stuck for time out seconds set state to error 1 to 30 seconds.")]
         public int TradeWorkFlowTimeOut
         {
             get { return tradeWorkFlowTimeOut; }
@@ -4440,26 +4443,26 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 
 
-        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - TradeWorkFlowTimerInterval MS", Description = "Trade Work Flow Timer Interval Seconds 3 to 10")]
+        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - TradeWorkFlowTimerInterval MS", Description = "Trade Work Flow Timer Interval Seconds 3 to 30")]
         public int TradeWorkFlowTimerInterval
         {
             get { return tradeWorkFlowTimerInterval; }
-            set { tradeWorkFlowTimerInterval = Math.Max(3, Math.Min(10, value)); }
+            set { tradeWorkFlowTimerInterval = Math.Max(3, Math.Min(30, value)); }
         }
 
-        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - TradeWorkFlowTimerInterval Reset MS", Description = "Trade Work Flow Timer Cycle Reset to allow new trade workflow action - Interval Seconds 1 to 10")]
-        public int TradeWorkFlowTimerIntervalReset
-        {
-            get { return tradeWorkFlowTimerIntervalReset; }
-            set { tradeWorkFlowTimerIntervalReset = Math.Max(10, Math.Min(1000, value)); }
-        }
+        //[Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - TradeWorkFlowTimerInterval Reset MS", Description = "Trade Work Flow Timer Cycle Reset to allow new trade workflow action - Interval Seconds 1 to 10")]
+        //public int TradeWorkFlowTimerIntervalReset
+        //{
+        //    get { return tradeWorkFlowTimerIntervalReset; }
+        //    set { tradeWorkFlowTimerIntervalReset = Math.Max(10, Math.Min(1000, value)); }
+        //}
 
 
-        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - TradeWorkFlowRetryAlarm ", Description = "Trade Work Flow Retry Alarm 1 to 5 - the number of times to wait for confirmation or retry an action before going to Error state - cancel all and flatten")]
+        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - TradeWorkFlowRetryAlarm ", Description = "Trade Work Flow Retry Alarm 1 to 10 - the number of times to wait for confirmation or retry an action before going to Error state - cancel all and flatten")]
         public int TradeWorkFlowRetryAlarm
         {
             get { return tradeWorkFlowRetryAlarm; }
-            set { tradeWorkFlowRetryAlarm = Math.Max(1, Math.Min(5, value)); }
+            set { tradeWorkFlowRetryAlarm = Math.Max(1, Math.Min(10, value)); }
         }
 
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - Realtime Trading Signal Queue Interval", Description = "Trade Event Timer Interval Seconds 1 to 5")]
