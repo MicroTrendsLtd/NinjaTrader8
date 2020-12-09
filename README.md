@@ -18,7 +18,7 @@ https://ninjatrader.com/support/forum/forum/ninjascript-file-sharing/ninjascript
 
 NinjaTrader APP Share
 Simply download and import to NinjaTrader 8 from here
-https://ninjatraderecosystem.com/user-app-share-download/atsquadrostrategybase-nt8-strategy-foundation-with-samplemacrossover/
+https://ninjatraderecosystem.com/user-app-share-download/atsquadrostrategybase-nt8-strategy-foundation-update/
 
 
 Testing and Reported Issues
