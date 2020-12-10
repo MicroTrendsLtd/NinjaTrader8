@@ -297,7 +297,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         #region variables,constants,EventHandlers
 
 
-        
+
 
 
         private bool isPositionCloseModeLimitExecuted = false;
@@ -314,7 +314,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private readonly object inOnMarketDataLock = new object();
 
 
-       
+
 
         [XmlIgnore]
         [Browsable(false)]
@@ -404,6 +404,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         protected Order orderEntryOCOLong = null;
         protected Order orderEntryOCOShort = null;
 
+        private ConcurrentDictionary<long, Order> ordersActiveConcDict;
         private List<Order> ordersRT = null;
         private List<Order> ordersStopLoss = null;
         private List<Order> ordersProfitTarget = null;
@@ -579,7 +580,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     case State.Transition:
 
                         //load here as no point for backtest not used but load before realtime so all is ready
-                        OrdersActiveConcDict = new ConcurrentDictionary<long, Order>();
+                        ordersActiveConcDict = new ConcurrentDictionary<long, Order>();
                         ordersRT = new List<Order>(1000);
                         ordersStopLoss = new List<Order>(4);
                         ordersProfitTarget = new List<Order>(4);
@@ -758,8 +759,8 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         protected override void OnAccountItemUpdate(Account account, AccountItem accountItem, double value)
         {
-            if(tracing)
-             Print(string.Format("OnAccountItemUpdate({0},{1})", accountItem.ToString(), value));
+            if (tracing)
+                Print(string.Format("OnAccountItemUpdate({0},{1})", accountItem.ToString(), value));
 
             accountDenomination = account.Denomination;
         }
@@ -951,6 +952,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
 
                 //add this bit to take care of caveats and problems over submitorder returning slowly missing the order ref or the order ref changing due to realtime transition
+                //TO DO: Is  order.OrderState == OrderState.Submitted enough or is this other state specific live replay etc?
                 if (order.OrderState == OrderState.Submitted || order.OrderState == OrderState.Accepted || order.OrderState == OrderState.Working)
                 {
                     if ((order.Name == orderEntryName) || order.Name.Contains(entry1NameLong) || order.Name.Contains(entry1NameShort))
@@ -983,26 +985,26 @@ namespace NinjaTrader.NinjaScript.Strategies
                 if (IsPlayBack) return;
 
 
-#region order tracking for entry, stops and targets
+                #region order tracking for entry, stops and targets
 
-#region OrdersRT
+                #region OrdersRT
 
                 //not interested in market orders
                 if (IsRealtime && order.OrderType != OrderType.Market)
                 {
-                    //  OrdersActive no lock needed here as the same order and orderState is dealt with synchronously
+                    //OrdersActive no lock needed here as the same order and orderState is dealt with synchronously
+                    //TO DO: Is  order.OrderState == OrderState.Submitted enough will ive and sim be different
                     if (order.OrderState == OrderState.Submitted || order.OrderState == OrderState.Accepted)
                     {
 
-#if DEBUG
-                        if (OrdersActiveConcDict.TryAdd(order.Id,order))
-                        {
 
+                        if (IsOrdeActiveConcDict && ordersActiveConcDict.TryAdd(order.Id, order))
+                        {
+#if DEBUG
                             if (tracing)
                                 Print("OnOrderUpdate > OrdersActive.Add(" + order.Name + " OrderId=" + order.OrderId + " State=" + order.OrderState.ToString() + ")");
-
-                        }
 #endif
+                        }
 
 
                         if (!OrdersActive.Contains(order))
@@ -1018,38 +1020,33 @@ namespace NinjaTrader.NinjaScript.Strategies
                     else if (!IsOrderIsActive(order))
                     {
 
-#if DEBUG
-
-                        Order orderRemoved;
-                        if (OrdersActiveConcDict.TryRemove(order.Id, out orderRemoved))
+                        if (IsOrdeActiveConcDict)
                         {
-                            if (tracing)
-                                Print("OnOrderUpdate > OrdersActive.Remove(" + orderRemoved.Name + " OrderId=" + orderRemoved.OrderId + " State=" + orderRemoved.OrderState.ToString() + ")");
-                        }
+
+                            Order orderRemoved;
+                            if (ordersActiveConcDict.TryRemove(order.Id, out orderRemoved))
+                            {
+#if DEBUG
+                                if (tracing)
+                                    Print("OnOrderUpdate > OrdersActive.Remove(" + orderRemoved.Name + " OrderId=" + orderRemoved.OrderId + " State=" + orderRemoved.OrderState.ToString() + ")");
 #endif
-
-
+                            }
+                        }
 
 #if DEBUG
                         if (tracing)
                             Print("OnOrderUpdate > OrdersActive.Rem(" + order.Name + " OrderId=" + order.OrderId + " State=" + order.OrderState.ToString() + ")");
 #endif
-
                         OrdersActive.Remove(order);
 
-
-
-
-
                     }
-
                 }
 
-#endregion
+                #endregion
 
-#endregion
+                #endregion
 
-#region order state process
+                #region order state process
                 switch (order.OrderState)
                 {
                     case OrderState.Accepted:
@@ -1113,7 +1110,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                             Print("OnOrderUpdate > Rejected(" + order.ToString() + ")");
                             Print(order.ToString());
                         }
-
+                        //TO Do:Consider what is the state of an order changerejected ? is it the current prior state. .does a rejected change such as a trail stop trigger the eror workflow
                         bool raiseAsError = false;
                         raiseAsError = IsRaiseErrorOnAllOrderRejects;
 
@@ -1202,7 +1199,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 
                 //to do replace with the onmarketdata way
-#region confirm orders are cancelled
+                #region confirm orders are cancelled
                 if (!IsOrderIsActive(order) && (TradeWorkFlow == StrategyTradeWorkFlowState.GoLongCancelWorkingOrdersPending
                     || TradeWorkFlow == StrategyTradeWorkFlowState.GoShortCancelWorkingOrdersPending
                     || TradeWorkFlow == StrategyTradeWorkFlowState.ExitTradeCancelWorkingOrderPending
@@ -1234,11 +1231,11 @@ namespace NinjaTrader.NinjaScript.Strategies
                 }
 
 
-#endregion
+                #endregion
 
 
 
-#endregion
+                #endregion
                 //}
             }
             catch (Exception ex)
@@ -1516,9 +1513,9 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         }
 
-#endregion
-#region methods
-#region NotifyPropertyChanged
+        #endregion
+        #region methods
+        #region NotifyPropertyChanged
         public event PropertyChangedEventHandler PropertyChanged;
         protected void NotifyPropertyChanged([CallerMemberName] string name = null)
         {
@@ -1528,8 +1525,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                 handler(this, new PropertyChangedEventArgs(name));
             }
         }
-#endregion
-#region timers
+        #endregion
+        #region timers
 
         private void TradeWorkFlowOnMarketDataEnable(int seconds)
         {
@@ -1596,8 +1593,8 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
 
 
-#endregion
-#region orderHelpers
+        #endregion
+        #region orderHelpers
 
         /// <summary>
         /// PreTradeValidateNoActiveOrdersExist for working or active orders and returns true if none are found - all clear is true - returns false if orders are found
@@ -1781,7 +1778,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                         if (tracing)
                             Print("CancelAllOrders() > Batch > IsOrdeActiveConcDict");
 
-                        foreach (Order orderToCancel in OrdersActiveConcDict.Values)
+                        //the caveats here as we cancel ordersActiveConcDict is being removed of the cancelled order
+                        //on that basis if this is a no go- use a copy to iterate  ordersActiveConcDict.Values.ToArray() etc
+                        foreach (Order orderToCancel in ordersActiveConcDict.Values)
                         {
                             if (!IsOrderActiveCanCancel(orderToCancel) || (IsOrderCancelStopsOnly && OrdersProfitTarget.Contains(orderToCancel))) continue;
 #if DEBUG
@@ -1793,23 +1792,15 @@ namespace NinjaTrader.NinjaScript.Strategies
                         return;
                     }
 
-
-
                     if (OrdersActive.Count < 1) return;
-
 
                     if (tracing)
                         Print("CancelAllOrders() > Batch > OrdersActive");
 
 
-
-
-                    //enumerationg coming use a copy instead of locking which was causing deadlocks
+                    //enumeration use a copy instead of locking which was causing deadlocks
+                    //work off a copy as the cancel will change the list during enumeration
                     var activeOrders = OrdersActive.ToArray();
-
-                    bool ordersExist = IsOrdersActiveExist(activeOrders, false);
-
-                    if (!ordersExist) return;
 
                     foreach (Order order in activeOrders)
                     {
@@ -1965,6 +1956,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             return result;
         }
 
+
         public bool IsOrderAcceptedOrWorking(Order o)
         {
             return (o != null ? (o.OrderState == OrderState.Accepted || o.OrderState == OrderState.Working) : false);
@@ -2000,14 +1992,14 @@ namespace NinjaTrader.NinjaScript.Strategies
             return o != null && Order.IsTerminalState(o.OrderState) || ((State == State.Realtime ? o.OrderState == OrderState.Submitted && o.Time.AddSeconds(10) < DateTime.Now : false));
         }
 
-#endregion
-#region SignalActions
+        #endregion
+        #region SignalActions
         public void SubmitSignalAction(AlgoSignalAction AlgoSignalActions, string signalLabel)
         {
             if (tracing) Print("SubmitSignalAction " + AlgoSignalActions.ToString() + " WF=" + this.TradeWorkFlow.ToString());
 
             TEQ.Enqueue(new AlgoSignalActionMsq(AlgoSignalActions, IsHistoricalTradeOrPlayBack ? Time[0] : DateTime.Now, signalLabel));
-#region Signal Execution
+            #region Signal Execution
             if (IsHistoricalTradeOrPlayBack || !IsRealtimeTradingUseQueue)
             {
                 if (TEQ.Count > 0) ProcessTradeEventQueue(this);
@@ -2019,10 +2011,10 @@ namespace NinjaTrader.NinjaScript.Strategies
                     TEQOnMarketDataEnable();
                 }
             }
-#endregion
+            #endregion
         }
-#endregion
-#region process queue
+        #endregion
+        #region process queue
 
         public void ProcessTradeEventQueue()
         {
@@ -2038,7 +2030,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         public void ProcessTradeEventQueue(Queue<AlgoSignalActionMsq> q)
         {
 
-#region queueLock
+            #region queueLock
             //we dont want to process again if execution context is already within here
             if (lockedQueue) return;
             lock (queueLockObject)
@@ -2046,7 +2038,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 if (lockedQueue) return;
                 lockedQueue = true;
             }
-#endregion
+            #endregion
 
             //stop onMarketData from sending more calls to process Q
             TEQOnMarketDataDisable();
@@ -2069,7 +2061,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
 
 
-#region process Queue
+            #region process Queue
             try
             {
                 AlgoSignalActionMsq a = null;
@@ -2169,13 +2161,13 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Debug.Print(ex.ToString());
                 Log(ex.ToString(), LogLevel.Error);
             }
-#endregion
+            #endregion
             lockedQueue = false;
             TEQOnMarketDataDisable();
         }
 
-#endregion
-#region process workflow
+        #endregion
+        #region process workflow
         public void ProcessWorkFlow()
         {
             TradeWorkFlow = ProcessWorkFlow(TradeWorkFlow);
@@ -2366,6 +2358,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                     if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode || !IsOnStrategyTradeWorkFlowStateEntryRejectionError) return ProcessWorkFlow(StrategyTradeWorkFlowState.Waiting);
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
                 case StrategyTradeWorkFlowState.GoLongSubmitOrderPending:
+                    //must catch nulls here in case the submit order was not placed and returned null
+                    if (orderEntry==null) return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
+
                     if (orderEntry.OrderState == OrderState.Filled)
                     {
                         return ProcessWorkFlow(StrategyTradeWorkFlowState.GoLongSubmitOrderFilled);
@@ -2664,6 +2659,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                     if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode || !IsOnStrategyTradeWorkFlowStateEntryRejectionError) return ProcessWorkFlow(StrategyTradeWorkFlowState.Waiting);
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
                 case StrategyTradeWorkFlowState.GoShortSubmitOrderPending:
+                    //must catch nulls here in case the submit order was not placed and returned null
+                    if (orderEntry == null) return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
 
                     if (orderEntry.OrderState == OrderState.Filled)
                     {
@@ -2963,10 +2960,10 @@ namespace NinjaTrader.NinjaScript.Strategies
                     if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode) return ProcessWorkFlow(StrategyTradeWorkFlowState.Waiting);
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
                 case StrategyTradeWorkFlowState.GoOCOLongShortSubmitOrderPending:
+                    //must catch nulls here in case the submit order was not placed and returned null
+                    if(orderEntryOCOLong==null || orderEntryOCOShort==null) return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
 
-
-                    if ((orderEntryOCOLong.OrderState == OrderState.Accepted || orderEntryOCOLong.OrderState == OrderState.Working)
-                        && (orderEntryOCOShort.OrderState == OrderState.Accepted || orderEntryOCOShort.OrderState == OrderState.Working))
+                    if (IsOrderIsActive(orderEntryOCOLong) || IsOrderIsActive(orderEntryOCOShort))
                     {
                         return ProcessWorkFlow(StrategyTradeWorkFlowState.GoOCOLongShortSubmitOrderWorking);
                     }
@@ -3434,8 +3431,8 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
         }
 
-#endregion
-#region Submit Orders
+        #endregion
+        #region Submit Orders
 
         private void SubmitOCOBreakoutInternal()
         {
@@ -3525,7 +3522,9 @@ namespace NinjaTrader.NinjaScript.Strategies
         private void SubmitProfitTargetInternal()
         {
             if (tracing)
-                Print("submitProfitTargetInternal(" + orderEntry.ToString() + ")");
+                Print("submitProfitTargetInternal(orderEntry " + orderEntry != null ? orderEntry.ToString() : "null" + ")");
+
+
 
 
             if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
@@ -3791,7 +3790,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             orderEntry = SubmitLong(signal);
 
             if (tracing)
-                Print("SubmitLongTrade() >> " + orderEntry.ToString());
+                Print("SubmitLongTrade(orderEntry=" + (orderEntry== null ? "null" : orderEntry.Name));
 
             return orderEntry;
         }
@@ -3867,8 +3866,8 @@ namespace NinjaTrader.NinjaScript.Strategies
             return orderEntry;
         }
 
-#endregion
-#region TechnicalHelpers
+        #endregion
+        #region TechnicalHelpers
 
         /// <summary>
         /// returns the points average range in points of the last n bars
@@ -3892,8 +3891,8 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             return Instrument.MasterInstrument.RoundToTickSize(result);
         }
-#endregion
-#region  Logging Tracing
+        #endregion
+        #region  Logging Tracing
         public void Print(string msg)
         {
             try
@@ -3939,11 +3938,15 @@ namespace NinjaTrader.NinjaScript.Strategies
                     txt += "|RX=" + Executions.Count.ToString()
                     + "|RO=" + Orders.Count.ToString()
                     + "|MP=" + Position.MarketPosition.ToString().Substring(0, 1)
-                    + "|PQ=" + Position.Quantity.ToString()
-                    + "|AO=" + OrdersActive.Count.ToString()
-                    + "|SQ=" + TEQ.Count().ToString()
-                    ;
+                    + "|PQ=" + Position.Quantity.ToString();
+
                 }
+                if (State == State.Realtime)
+                {
+                   txt += "|AO=" + ordersRT.Count.ToString()
+                   + "|SQ=" + TEQ.Count().ToString();
+                }
+
 
                 txt += "|WF=" + this.tradeWorkFlow.ToString();
 
@@ -3991,8 +3994,8 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 
 
-#endregion
-#region DateTime
+        #endregion
+        #region DateTime
 
         private DateTime tEQNextTimeValid = DateTime.MinValue;
         private DateTime tradeWorkFlowNextTimeValid = DateTime.MinValue;
@@ -4012,9 +4015,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                 return now;
             }
         }
-#endregion
-#endregion
-#region properties
+        #endregion
+        #endregion
+        #region properties
 
         private bool stratCanTrade = true;
 
@@ -4373,7 +4376,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsOrdeActiveConcDict", Description = "use OrdersActiveConcDict or list<Order> for OrdersActive")]
         public bool IsOrdeActiveConcDict
         {
-            get;set;
+            get; set;
         }
 
 
@@ -4431,7 +4434,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
 
 
-       
+
         //private bool entryOrderInFlightCollision;
 
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - TradeWorkFlowTimeOut S", Description = "Trade Work Flow Time Out Seconds 30 - if  Workflow is stuck for time out seconds set state to error 1 to 30 seconds.")]
@@ -4513,7 +4516,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 
 
-#region Non browsable
+        #region Non browsable
 
 
         [Browsable(false)]
@@ -4561,9 +4564,11 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
 
 
+
+
         [XmlIgnore]
         [Browsable(false)]
-        public ConcurrentDictionary<long, Order> OrdersActiveConcDict { get; set; }
+        public ConcurrentDictionary<long, Order> OrdersActiveConcDict { get { return ordersActiveConcDict; } set { ordersActiveConcDict = value; } }
 
 
         [Browsable(false)]
@@ -4647,8 +4652,8 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 
 
-#endregion
+        #endregion
 
-#endregion
+        #endregion
     }
 }
