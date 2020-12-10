@@ -1624,43 +1624,79 @@ namespace NinjaTrader.NinjaScript.Strategies
         /// preTradeValidateCanEnterTrade - returns true if PreTradeValidateNoActiveOrdersExist and PreTradeValidatePositionIsFlat are true - returns false if not.
         /// Can be overidden in derived child class so that a user/developer defined set of conditions can be assessed to allow or prevent a trade entry.
         /// isPositionCloseModeLimit is for the close mode IsPositionCloseModeLimit 
+        /// isByPassCheckAtClient avoids derived client end validation checks and bypass - useful for user actions that bypass validation or special circumstance
         /// </summary>
         /// <param name="isLong"></param>
         /// <param name="isPositionCloseModeLimitExecuted"></param>
+        /// <param name="isByPassCheckAtClient"></param>
         /// <returns></returns>
-        private bool PreTradeValidateCanEnterTrade(bool isLong, bool isPositionCloseModeLimitExecuted = false)
+        private bool PreTradeValidateCanEnterTrade(bool isLong, bool isPositionCloseModeLimitExecuted = false, bool isByPassCheckAtClient = false)
         {
             if (tracing)
-                Print(string.Format("preTradeValidateCanEnterTrade() > isLong:{0} > isPosCloseLimitExec:{1}", isLong, isPositionCloseModeLimitExecuted));
+                Print(string.Format("preTradeValidateCanEnterTrade() > isLong:{0} > isPosCloseLimitExec:{1} > isByPassCheckAtClient{2}", isLong, isPositionCloseModeLimitExecuted, isByPassCheckAtClient));
 
-            if (isPositionCloseModeLimitExecuted)
+            if (isByPassCheckAtClient)
+            {
+                if (tracing)
+                    Print("PreTradeValidateCanEnterTrade() > isByPassCheckAtClient");
+
+                return PreTradeValidateNoActiveOrdersExist() && PreTradeValidatePositionIsFlat();
+            }
+            else if (isPositionCloseModeLimitExecuted)
             {
                 if (tracing)
                     Print("preTradeValidateCanEnterTrade() > isPositionCloseModeLimitExecuted");
 
                 return PreTradeValidatePositionIsFlat() && OnPreTradeEntryValidate(isLong);
             }
-            else
-            {
-                if (tracing)
-                    Print("preTradeValidateCanEnterTrade() > default");
+            if (tracing)
+                Print("preTradeValidateCanEnterTrade() > default");
 
-                return PreTradeValidateNoActiveOrdersExist() && (PreTradeValidatePositionIsFlat() || IsOrderInFlightOrActive(orderClose)) && OnPreTradeEntryValidate(isLong);
-            }
+            return PreTradeValidateNoActiveOrdersExist() && (PreTradeValidatePositionIsFlat() || IsOrderInFlightOrActive(orderClose)) && OnPreTradeEntryValidate(isLong);
         }
 
-        private bool PreTradeValidateCanEnterTradeOCO()
+        private bool PreTradeValidateCanEnterTradeOCO(bool isPositionCloseModeLimitExecuted = false, bool isByPassCheckAtClient = false)
         {
             if (tracing)
-                Print("PreTradeValidateCanEnterTradeOCO()");
+                Print(string.Format("PreTradeValidateCanEnterTradeOCO() > isPosCloseLimitExec:{0} > isByPassCheckAtClient{1}", isPositionCloseModeLimitExecuted, isByPassCheckAtClient));
 
-            return PreTradeValidateNoActiveOrdersExist() && (PreTradeValidatePositionIsFlat() || IsOrderInFlightOrActive(orderClose));
+
+            if (isByPassCheckAtClient)
+            {
+                if (tracing)
+                    Print("PreTradeValidateCanEnterTradeOCO() > isByPassCheckAtClient");
+
+                return PreTradeValidateNoActiveOrdersExist() && PreTradeValidatePositionIsFlat();
+            }
+            else if (isPositionCloseModeLimitExecuted)
+            {
+                if (tracing)
+                    Print("PreTradeValidateCanEnterTradeOCO() > isPositionCloseModeLimitExecuted");
+
+                return PreTradeValidatePositionIsFlat() && OnPreTradeEntryValidateOCO();
+            }
+
+            if (tracing)
+                Print("PreTradeValidateCanEnterTradeOCO() > Default");
+
+            return PreTradeValidateNoActiveOrdersExist() && (PreTradeValidatePositionIsFlat() || IsOrderInFlightOrActive(orderClose)) && OnPreTradeEntryValidateOCO();
         }
+
+
+        public virtual bool OnPreTradeEntryValidateOCO()
+        {
+            if (tracing)
+                Print("OnPreTradeEntryValidateOCO() > true > NotImplemented");
+            return true;
+
+        }
+
+        
 
         public virtual bool OnPreTradeEntryValidate(bool isLong)
         {
             if (tracing)
-                Print("OnpreTradeValidateCanEnterTrade()");
+                Print("OnpreTradeValidateCanEnterTrade() > true  > NotImplemented");
             return true;
 
         }
@@ -2337,7 +2373,9 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                     if (connectionStatusOrder == ConnectionStatus.Connected)
                     {
-                        if (PreTradeValidateCanEnterTrade(true, isPositionCloseModeLimitExecuted))
+                        bool isUserActionOverride = IsUserActionOverride;
+                        IsUserActionOverride = false; //must reset
+                        if (PreTradeValidateCanEnterTrade(true, isPositionCloseModeLimitExecuted, isUserActionOverride))
                         {
                             orderEntryPrior = orderEntry;
                             orderEntry = SubmitLongTrade();
@@ -2359,7 +2397,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
                 case StrategyTradeWorkFlowState.GoLongSubmitOrderPending:
                     //must catch nulls here in case the submit order was not placed and returned null
-                    if (orderEntry==null) return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
+                    if (orderEntry == null) return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
 
                     if (orderEntry.OrderState == OrderState.Filled)
                     {
@@ -2636,7 +2674,9 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                     if (connectionStatusOrder == ConnectionStatus.Connected)
                     {
-                        if (PreTradeValidateCanEnterTrade(false, isPositionCloseModeLimitExecuted))
+                        bool isUserActionOverride = IsUserActionOverride;
+                        IsUserActionOverride = false; //must reset
+                        if (PreTradeValidateCanEnterTrade(false, isPositionCloseModeLimitExecuted, isUserActionOverride))
                         {
                             orderEntryPrior = orderEntry;
                             orderEntry = SubmitShortTrade();
@@ -2936,7 +2976,10 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                     if (connectionStatusOrder == ConnectionStatus.Connected)
                     {
-                        if (PreTradeValidateCanEnterTradeOCO())
+                        bool isUserActionOverride = IsUserActionOverride;
+                        IsUserActionOverride = false; //must reset
+
+                        if (PreTradeValidateCanEnterTradeOCO(isPositionCloseModeLimitExecuted, isUserActionOverride))
                         {
                             orderEntryPrior = orderEntry;
                             orderEntry = null;
@@ -2961,7 +3004,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
                 case StrategyTradeWorkFlowState.GoOCOLongShortSubmitOrderPending:
                     //must catch nulls here in case the submit order was not placed and returned null
-                    if(orderEntryOCOLong==null || orderEntryOCOShort==null) return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
+                    if (orderEntryOCOLong == null || orderEntryOCOShort == null) return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
 
                     if (IsOrderIsActive(orderEntryOCOLong) || IsOrderIsActive(orderEntryOCOShort))
                     {
@@ -3790,7 +3833,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             orderEntry = SubmitLong(signal);
 
             if (tracing)
-                Print("SubmitLongTrade(orderEntry=" + (orderEntry== null ? "null" : orderEntry.Name));
+                Print("SubmitLongTrade(orderEntry=" + (orderEntry == null ? "null" : orderEntry.Name));
 
             return orderEntry;
         }
@@ -3943,8 +3986,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                 }
                 if (State == State.Realtime)
                 {
-                   txt += "|AO=" + ordersRT.Count.ToString()
-                   + "|SQ=" + TEQ.Count().ToString();
+                    txt += "|AO=" + ordersRT.Count.ToString()
+                    + "|SQ=" + TEQ.Count().ToString();
                 }
 
 
@@ -4018,6 +4061,23 @@ namespace NinjaTrader.NinjaScript.Strategies
         #endregion
         #endregion
         #region properties
+
+
+        private bool isUserActionOverride = false;
+        [XmlIgnore, Browsable(false)]
+        public bool IsUserActionOverride
+        {
+            get { return this.isUserActionOverride; }
+            set
+            {
+                if (value != this.isUserActionOverride)
+                {
+                    this.isUserActionOverride = value;
+                    this.NotifyPropertyChanged("IsUserActionOverride");
+                }
+            }
+        }
+
 
         private bool stratCanTrade = true;
 
