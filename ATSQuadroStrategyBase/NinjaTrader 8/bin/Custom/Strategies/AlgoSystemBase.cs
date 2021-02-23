@@ -16,9 +16,10 @@
 //Collaboration: All welcome at GIT
 //Updates: Visit GIT open source project code for the latest.
 //About: ATSQuadroStrategyBase is a NinjaTrader 8 Strategy unmanaged mode trade engine base foundation for futures, comprising of 4 Bracket capacity, all In scale out non position compounding,  prevents overfills and builds on functionality provided by the Managed approach for NinjaTrader Strategies. 
+//History/Collaborators: See gitHub
 //Version: 8
-//History: See gitHub history
-//GitHub Collaborators: jmscraig
+
+
 
 #region Using declarations
 using System;
@@ -450,7 +451,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         #region events and overrides
         public ATSQuadroStrategyBase()
         {
-            AlgoSystemBaseVersion="2021.2.23.1";
+            AlgoSystemBaseVersion="2021.2.23.2";
             IsFlattenOnTransition = true;
             IsOnStrategyTradeWorkFlowStateEntryRejectionError = true;
             IsOrderCancelInspectEachOrDoBatchCancel = true;
@@ -760,8 +761,8 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         protected override void OnAccountItemUpdate(Account account, AccountItem accountItem, double value)
         {
-            if (tracing)
-                Print(string.Format("OnAccountItemUpdate({0},{1})", accountItem.ToString(), value));
+            //if (tracing)
+            //    Print(string.Format("OnAccountItemUpdate({0},{1})", accountItem.ToString(), value));
 
             accountDenomination = account.Denomination;
         }
@@ -2296,6 +2297,20 @@ namespace NinjaTrader.NinjaScript.Strategies
                     break;
                 case StrategyTradeWorkFlowState.GoLongCancelWorkingOrdersConfirmed:
                     TradeWorkFlowOnMarketDataDisable();
+                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    {
+                        if (Position.Quantity != 0)
+                        {
+                            TradeWorkFlow = StrategyTradeWorkFlowState.GoLongClosePositions;
+                            goto case StrategyTradeWorkFlowState.GoLongClosePositions;
+                        }
+                        else
+                        {
+                            TradeWorkFlow = StrategyTradeWorkFlowState.GoLongSubmitOrder;
+                            goto case StrategyTradeWorkFlowState.GoLongSubmitOrder;
+                        }
+                        break;
+                    }
                     if (Position.Quantity != 0) return ProcessWorkFlow(StrategyTradeWorkFlowState.GoLongClosePositions);
                     else return ProcessWorkFlow(StrategyTradeWorkFlowState.GoLongSubmitOrder);
                 case StrategyTradeWorkFlowState.GoLongClosePositions:
@@ -2597,7 +2612,23 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                     break;
                 case StrategyTradeWorkFlowState.GoShortCancelWorkingOrdersConfirmed:
+
                     TradeWorkFlowOnMarketDataDisable();
+                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    {
+                        if (Position.Quantity != 0)
+                        {
+                            TradeWorkFlow = StrategyTradeWorkFlowState.GoShortClosePositions;
+                            goto case StrategyTradeWorkFlowState.GoShortClosePositions;
+                        }
+                        else
+                        {
+                            TradeWorkFlow = StrategyTradeWorkFlowState.GoShortSubmitOrder;
+                            goto case StrategyTradeWorkFlowState.GoShortSubmitOrder;
+                        }
+                        break;
+                    }
+
                     if (Position.Quantity != 0) return ProcessWorkFlow(StrategyTradeWorkFlowState.GoShortClosePositions);
                     else return ProcessWorkFlow(StrategyTradeWorkFlowState.GoShortSubmitOrder);
                 case StrategyTradeWorkFlowState.GoShortClosePositions:
