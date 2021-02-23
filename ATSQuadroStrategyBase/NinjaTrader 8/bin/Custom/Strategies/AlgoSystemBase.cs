@@ -450,6 +450,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         #region events and overrides
         public ATSQuadroStrategyBase()
         {
+            AlgoSystemBaseVersion="2021.2.23.1";
             IsFlattenOnTransition = true;
             IsOnStrategyTradeWorkFlowStateEntryRejectionError = true;
             IsOrderCancelInspectEachOrDoBatchCancel = true;
@@ -2363,7 +2364,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         {
                             orderEntryPrior = orderEntry;
                             orderEntry = SubmitLongTrade();
-                            return ProcessWorkFlow(StrategyTradeWorkFlowState.GoLongSubmitOrderPending);
+                            break;
                         }
                         else
                         {
@@ -2663,12 +2664,13 @@ namespace NinjaTrader.NinjaScript.Strategies
                         {
                             orderEntryPrior = orderEntry;
                             orderEntry = SubmitShortTrade();
-                            return ProcessWorkFlow(StrategyTradeWorkFlowState.GoShortSubmitOrderPending);
+                            break;
                         }
                         else
                         {
                             return ProcessWorkFlow(StrategyTradeWorkFlowState.GoShortValidationRejected);
                         }
+
                     }
 
 
@@ -4455,13 +4457,13 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
 
 
-
-        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsPositionCloseModeLimit", Description = "False:CloseOrder, True:TryLimitExits")]
+        [Browsable(false)]
+        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsPositionCloseModeLimit", Description = "False:CloseOrder, True:TryLimitExits -  Not ready for implementation as yet requires fix")]
         public bool IsPositionCloseModeLimit { get; set; }
 
 
-
-        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - PositionCloseModeTicksOffset", Description = "PositionCloseModeTicksOffset for IsPositionCloseMode ticks past price to fill a limit")]
+         [Browsable(false)]
+        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - PositionCloseModeTicksOffset", Description = "PositionCloseModeTicksOffset for IsPositionCloseMode ticks past price to fill a limit - Not ready for implementation as yet requires fix to the mode")]
         public int PositionCloseModeTicksOffset { get; set; }
 
 
@@ -4562,6 +4564,14 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsSubmitTargetsAndConfirm", Description = "Confirm Target Placement or skip")]
         public bool IsSubmitTargetsAndConfirm { get; set; }
+
+
+        [XmlIgnore]
+        [Display(GroupName = "Zystem Params", Order = -1000, Name = "Trade Engine - Version", Description = "Version")]
+        public string AlgoSystemBaseVersion
+        {
+            get;set;
+        }
 
 
 
