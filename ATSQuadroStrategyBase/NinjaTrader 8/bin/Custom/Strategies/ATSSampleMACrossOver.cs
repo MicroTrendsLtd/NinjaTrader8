@@ -229,7 +229,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 base.orderTarget3 = base.SubmitOrderUnmanaged(0, OrderAction.BuyToCover, OrderType.Limit, 1, price, 0.0, string.Format("{0}.OCO3.{1}", str2, oCOId), "↑Trg3" + str2);
 
 
-                price = orderEntry.AverageFillPrice + (50 * base.TickSize);
+                price = orderEntry.AverageFillPrice - (50 * base.TickSize);
                 price = base.Instrument.MasterInstrument.RoundToTickSize(price);
 
                 //				base.orderTarget4 = base.SubmitOrderUnmanaged(0, OrderAction.BuyToCover, OrderType.Limit, 1, price, 0.0, string.Format("{0}.OCO4.{1}", str2, base.oCOId), "↑Trg4" + str2);
