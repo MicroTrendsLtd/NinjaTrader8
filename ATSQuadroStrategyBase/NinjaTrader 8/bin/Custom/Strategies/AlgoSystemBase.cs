@@ -3713,6 +3713,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                 if (tracing)
                     Print("PositionClose() > MarketPosition.Long");
 
+
+                //isPositionCloseModeLimit shelved
                 if (isPositionCloseModeLimit)
                 {
                     isPositionCloseModeLimitExecuted = false;
@@ -3761,7 +3763,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 if (tracing)
                     Print("PositionClose() > MarketPosition.Short");
 
-
+                //isPositionCloseModeLimit shelved 
                 if (isPositionCloseModeLimit)
                 {
 
@@ -3785,6 +3787,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                                 Print("PositionClose() > profitOrder " + profitOrder.Name);
 
                             ChangeOrder(profitOrder, profitOrder.Quantity, GetCurrentAsk(0) + PositionCloseModeTicksOffset * TickSize, 0);
+
+                            isPositionCloseModeLimitExecuted = true;
                         }
                         //return if success
                         return;
