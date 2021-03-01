@@ -451,7 +451,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         #region events and overrides
         public ATSQuadroStrategyBase()
         {
-            AlgoSystemBaseVersion="2021.2.23.2";
+            AlgoSystemBaseVersion="2021.3.1.1";
             IsFlattenOnTransition = true;
             IsOnStrategyTradeWorkFlowStateEntryRejectionError = true;
             IsOrderCancelInspectEachOrDoBatchCancel = true;
