@@ -29,7 +29,7 @@ namespace NinjaTrader.NinjaScript.Strategies
     /// <summary>
     /// A quick demo using the ATSQuadroStrategyBase as a basic NT8 unmanaged mode strategy foundation
     /// </summary>
-    public class ATSSamplePriceReversalTest : ATSQuadroStrategyBase
+    public class ATSQSBHybridAlgoSamplePriceReversalTest : AlgoSystemTradingUILayerBase
     {
         private int signalBars = 3;
         private int trailLookBackBars = 3;
@@ -43,7 +43,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             if (State == State.SetDefaults)
             {
                 Description = @"ATSSamplePriceReversalTest using the ATS.NT8.ATSQuadroStrategyBase Strategy Foundation";
-                Name = "ATSSamplePriceReversalTest";
+                Name = "ATSSamplePriceReversalTest Hybrid";
 
                 TradeSignalType1 = 1;
             }
@@ -52,7 +52,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
             else if (State == State.DataLoaded)
             {
-
+                this.IsRealtimeTradingOnly = true;
             }
         }
 
@@ -259,6 +259,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         public override void TradeManagement(double lastPrice)
         {
+
             //if some rule says to exit  you can call ito the workflow and execute an exit
             // base.TradeWorkFlow = base.ProcessWorkFlow(StrategyTradeWorkFlowState.ExitTrade);
             // this.inManageCurrentPosition = false;  unlock

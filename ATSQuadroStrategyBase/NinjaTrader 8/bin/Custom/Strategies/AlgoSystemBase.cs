@@ -19,8 +19,6 @@
 //History/Collaborators: See gitHub
 //Version: 8
 
-
-
 #region Using declarations
 using System;
 using System.Collections.Concurrent;
@@ -296,11 +294,6 @@ namespace NinjaTrader.NinjaScript.Strategies
     public abstract class ATSQuadroStrategyBase : Strategy, INotifyPropertyChanged
     {
         #region variables,constants,EventHandlers
-
-
-
-
-
         private bool isPositionCloseModeLimitExecuted = false;
         private double lastPrice;
         private DateTime onMarketDataTimeNextAllowed;
@@ -312,10 +305,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private readonly object ordersActiveLockObject = new object();
 
         private bool inOnMarketData;
-        private readonly object inOnMarketDataLock = new object();
-
-
-
+        private readonly object lockObjectMarketData = new object();
 
         [XmlIgnore]
         [Browsable(false)]
@@ -444,14 +434,18 @@ namespace NinjaTrader.NinjaScript.Strategies
         private bool orderCancelStopsOnly = true;
         private bool orderCancelInspectEachOrDoBatchCancel = true;
         private bool raiseErrorOnAllOrderRejects = false;
-        private readonly object lockObjectMarketData = new object();
+        
+        //Trade Man        
+        private readonly object lockObjectTradeManInternal = new object();
+        private bool isInTradeManagementProcessInternal;
+
         private Currency accountDenomination = Currency.UsDollar;
 
         #endregion
         #region events and overrides
         public ATSQuadroStrategyBase()
         {
-            AlgoSystemBaseVersion="2021.3.1.1";
+            AlgoSystemBaseVersion = "2022.2.18.1";
             IsFlattenOnTransition = true;
             IsOnStrategyTradeWorkFlowStateEntryRejectionError = true;
             IsOrderCancelInspectEachOrDoBatchCancel = true;
@@ -473,7 +467,6 @@ namespace NinjaTrader.NinjaScript.Strategies
             TradeWorkFlowTimerInterval = 3;
             TradeSignalExpiryInterval = 3;
         }
-
         protected override void OnStateChange()
         {
 
@@ -527,6 +520,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         PositionCloseModeTicksOffset = 3;
                         TradeWorkFlowTimerInterval = 3;
                         TradeSignalExpiryInterval = 3;
+                        IsTradeManagementEnabled = true;
 
                         break;
                     case State.Configure:
@@ -740,7 +734,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Log(errorMsg, LogLevel.Error);
             }
         }
-
         protected override void OnConnectionStatusUpdate(ConnectionStatusEventArgs connectionStatusUpdate)
         {
 
@@ -758,7 +751,6 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 
         }
-
         protected override void OnAccountItemUpdate(Account account, AccountItem accountItem, double value)
         {
             //if (tracing)
@@ -766,7 +758,6 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             accountDenomination = account.Denomination;
         }
-
         public override void OnCalculateMinMax()
         {
 
@@ -782,7 +773,6 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
 
         }
-
         protected override void OnBarUpdate()
         {
             //historical playback not supported,  test for realtimeOnly trading
@@ -792,7 +782,6 @@ namespace NinjaTrader.NinjaScript.Strategies
             try
             {
                 lastPrice = Closes[0][0];
-
                 if (IsFirstTickOfBar)
                 {
                     if (Bars.IsFirstBarOfSessionByIndex(0))
@@ -804,9 +793,14 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                 }
 
-
+                // if no pending actions such as new orders etc then do TradeManagement
                 if (AlgoSignalAction == AlgoSignalAction.None)
+                {
+                    if(Position.MarketPosition!=MarketPosition.Flat  && isTradeManagementEnabled)
+                        TradeManagementExecInternal(LastPrice);
+
                     return;
+                }
 
 
                 //if execution context reaches here process signal
@@ -932,7 +926,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Print("OnBarUpdate > " + ex.ToString());
             }
         }
-
         protected override void OnOrderUpdate(Order order, double limitPrice, double stopPrice, int quantity, int filled, double averageFillPrice, OrderState orderState, DateTime time, ErrorCode error, string comment)
         {
             if (order == null) return;
@@ -1249,7 +1242,6 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
 
         }
-
         protected override void OnExecutionUpdate(Execution execution, string executionId, double price, int quantity, MarketPosition marketPosition, string orderId, DateTime time)
         {
             try
@@ -1348,7 +1340,6 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
 
         }
-
         protected override void OnPositionUpdate(Position position, double averagePrice, int quantity, MarketPosition marketPosition)
         {
             if (tracing)
@@ -1363,10 +1354,8 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
 
         }
-
         protected override void OnMarketData(MarketDataEventArgs marketDataUpdate)
         {
-
             if (marketDataUpdate.MarketDataType == MarketDataType.Bid || marketDataUpdate.MarketDataType == MarketDataType.Ask)
             {
                 if (DateTime.Now < onMarketDataBidTimeNextAllowed) return;
@@ -1376,31 +1365,37 @@ namespace NinjaTrader.NinjaScript.Strategies
                 return;
             }
 
+            //process on a price move only
             if (marketDataUpdate.MarketDataType != MarketDataType.Last) return;
             this.MarketDataUpdate = marketDataUpdate;
             if (this.LastPrice == marketDataUpdate.Price) return;
             LastPrice = marketDataUpdate.Price;
 
-
+            //process min of 1 second
             if (DateTime.Now < onMarketDataTimeNextAllowed) return;
             onMarketDataTimeNextAllowed = DateTime.Now.AddSeconds(1);
 
-            if (Position.MarketPosition == MarketPosition.Flat)
+            //calcualte position min of every 2 secs
+            if (DateTime.Now > onMarketDataPositionInfoNextAllowed)
             {
-                PositionInfo = string.Format("{0}", Position.MarketPosition.ToString());
-                PositionState = 0;
-                UnRealizedPL = 0;
-            }
-            else
-            {
-                PositionInfo = string.Format("{0} {1} @ {2}", Position.MarketPosition.ToString().Substring(0, 1), Position.Quantity, Position.AveragePrice);
-
-                if (Position.MarketPosition == MarketPosition.Long)
-                    PositionState = 1;
+                onMarketDataPositionInfoNextAllowed = DateTime.Now.AddSeconds(2);
+                if (Position.MarketPosition == MarketPosition.Flat)
+                {
+                    PositionInfo = string.Format("{0}", Position.MarketPosition.ToString());
+                    PositionState = 0;
+                    UnRealizedPL = 0;
+                }
                 else
-                    PositionState = -1;
+                {
+                    PositionInfo = string.Format("{0} {1} @ {2}", Position.MarketPosition.ToString().Substring(0, 1), Position.Quantity, Position.AveragePrice);
 
-                UnRealizedPL = Position.GetUnrealizedProfitLoss(PerformanceUnit.Currency);
+                    if (Position.MarketPosition == MarketPosition.Long)
+                        PositionState = 1;
+                    else
+                        PositionState = -1;
+
+                    UnRealizedPL = Position.GetUnrealizedProfitLoss(PerformanceUnit.Currency);
+                }
             }
 
             if (IsHistorical || TradeWorkFlow == StrategyTradeWorkFlowState.ExitOnTransitionWaitingConfirmation)
@@ -1408,22 +1403,19 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             //lock re-etnry here during processing
             if (this.inOnMarketData) return;
-            lock (this.inOnMarketDataLock)
+            lock (this.lockObjectMarketData)
             {
                 if (this.inOnMarketData) return;
                 this.inOnMarketData = true;
             }
 
-
             try
             {
-
-
                 //if !IsTradeWorkFlowReady() and we get an TradeWorkFlowTimeOut in a non Error case- set WF to Error and 
                 if (!IsTradeWorkFlowReady() && !IsTradeWorkFlowInErrorState() && TradeWorkFlowLastChanged < DateTime.Now.AddSeconds(-1 * TradeWorkFlowTimeOut))
                 {
                     if (tracing)
-                        Print("OnMarketData >> TWF ErrorTimeOut");
+                        Print("OnMarketData >> TWF >> ErrorTimeOut");
 
                     TradeWorkFlow = StrategyTradeWorkFlowState.ErrorTimeOut;
                     //ProcessWorkFlow(StrategyTradeWorkFlowState.ErrorTimeOut);
@@ -1438,41 +1430,44 @@ namespace NinjaTrader.NinjaScript.Strategies
                 //call back in to workflow  - Monitor for Workflow events or for Error State
                 if ((IsTradeWorkFlowOnMarketData && Now >= tradeWorkFlowNextTimeValid) && ((!IsTradeWorkFlowReady() && IsTradeWorkFlowMonitorOn) || IsTradeWorkFlowInErrorState()))
                 {
-                    if (tracing)
-                        Print("OnMarketData >> TWF >> ProcessWorkFlow");
-
                     //set this we dont want to come back here too quick
                     tradeWorkFlowNextTimeValid = Now.AddSeconds(TradeWorkFlowTimerInterval);
 
-
                     //trying TriggerCustomEvent(ProcessWorkFlow, TradeWorkFlow) so all pointers line up to avoid excetions in time and series
                     if (!IsTradeWorkFlowReady())
+                    {
+                        if (tracing)
+                            Print("OnMarketData >> TWF >> ProcessWorkFlow");
+
                         TriggerCustomEvent(ProcessWorkFlow, TradeWorkFlow);
+                    }
 
                     this.inOnMarketData = false;
                     return;
                 }
-
-
 
                 //process the signal q
                 if (IsTEQOnMarketData && Now >= tEQNextTimeValid)
                 {
                     tEQNextTimeValid = Now.AddSeconds(TEQTimerInterval);
-                    if (tracing)
-                        Print("OnMarketData >> TEQ");
 
                     //no lock needed here on TEQ - it can be rouhgly accurate ProcessTradeEventQueue will work it out
                     if (IsTradeWorkFlowReady() && TEQ.Count > 0)
+                    {
+                        if (tracing)
+                            Print("OnMarketData >> TEQ >> ProcessQ");
                         TriggerCustomEvent(ProcessTradeEventQueue, null);
 
-                    this.inOnMarketData = false;
-                    return;
-
-
+                        this.inOnMarketData = false;
+                        return;
+                    }
                 }
 
-
+                //do trade management if tradeMan on and position exists and 
+                if (Position.MarketPosition != MarketPosition.Flat && isTradeManagementEnabled)
+                {
+                    TriggerCustomEvent(TradeManagementExecInternal, lastPrice);
+                }
             }
             catch (Exception ex)
             {
@@ -1481,10 +1476,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Log("OnMarketData >> Error: " + ex.ToString(), LogLevel.Error);
             }
             this.inOnMarketData = false;
-
-
         }
-
 
         /// <summary>
         /// OnStrategyTradeWorkFlowUpdated
@@ -1693,7 +1685,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         }
 
-        
+
 
         public virtual bool OnPreTradeEntryValidate(bool isLong)
         {
@@ -3508,6 +3500,34 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
 
         #endregion
+        #region TradeManagement
+        private void TradeManagementExecInternal(object state)
+        {
+            TradeManagementExecInternal(lastPrice);
+        }
+        private void TradeManagementExecInternal(double lastPrice)
+        {
+            //make sure something is not midflight suchj as order operations
+            if (!IsTradeWorkFlowReady())
+                return;
+
+            //use this to guard against multiple thread entry from OnMarket data and onBarUpdate
+            if (isInTradeManagementProcessInternal)
+                return;
+
+            lock (lockObjectTradeManInternal)
+            {
+                if (isInTradeManagementProcessInternal)
+                    return;
+                isInTradeManagementProcessInternal = true;
+            }
+            TradeManagement(lastPrice);
+        }
+        public virtual void TradeManagement(double lastPrice)
+        {
+
+        }
+        #endregion
         #region Submit Orders
 
         private void SubmitOCOBreakoutInternal()
@@ -4116,6 +4136,29 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
 
 
+
+        private bool isTradeManagementEnabled = true;
+
+        [XmlIgnore, Browsable(false)]
+        public virtual bool IsTradeManagementEnabled
+        {
+            get
+            {
+                return this.isTradeManagementEnabled;
+            }
+            set
+            {
+                if (value != this.isTradeManagementEnabled)
+                {
+                    this.isTradeManagementEnabled = value;
+                    this.NotifyPropertyChanged("IsTradeManagementEnabled");
+                }
+            }
+        }
+
+
+
+
         private bool stratCanTrade = true;
 
         [XmlIgnore, Browsable(false)]
@@ -4414,6 +4457,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
 
         private double bidPrice = 0;
+        private DateTime onMarketDataPositionInfoNextAllowed;
 
         [XmlIgnore, Browsable(false)]
         public double BidPrice
@@ -4497,7 +4541,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         public bool IsPositionCloseModeLimit { get; set; }
 
 
-         [Browsable(false)]
+        [Browsable(false)]
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - PositionCloseModeTicksOffset", Description = "PositionCloseModeTicksOffset for IsPositionCloseMode ticks past price to fill a limit - Not ready for implementation as yet requires fix to the mode")]
         public int PositionCloseModeTicksOffset { get; set; }
 
@@ -4605,7 +4649,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Display(GroupName = "Zystem Params", Order = -1000, Name = "Trade Engine - Version", Description = "Version")]
         public string AlgoSystemBaseVersion
         {
-            get;set;
+            get; set;
         }
 
 
@@ -4751,6 +4795,8 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Browsable(false)]
         [XmlIgnore()]
         public MarketDataEventArgs MarketDataUpdate { get; private set; }
+
+
 
 
 

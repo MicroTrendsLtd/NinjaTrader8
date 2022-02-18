@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>NinjaTrader.Custom</RootNamespace>
     <AssemblyName>ATS.NinjaTrader8.QuadroStrategyBase</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
   </PropertyGroup>
@@ -49,6 +49,9 @@
     <Reference Include="System.ComponentModel.DataAnnotations" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
+    <Reference Include="System.Windows.Controls.WpfPropertyGrid">
+      <HintPath>..\..\..\..\..\..\..\..\..\..\Program Files (x86)\NinjaTrader 8\bin64\System.Windows.Controls.WpfPropertyGrid.dll</HintPath>
+    </Reference>
     <Reference Include="System.Xaml" />
     <Reference Include="System.Xml" />
     <Reference Include="System.Xml.Linq" />
@@ -87,9 +90,24 @@
   <ItemGroup>
     <Compile Include="Indicators\%40Indicator.cs" />
     <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="Indicators\ATSIndicatorQSBStrategyInfoBar.cs" />
+    <Compile Include="Indicators\ATSIndicatorQSBStrategyVisualiser.cs" />
     <Compile Include="MarketAnalyzerColumns\%40MarketAnalyzerColumn.cs" />
     <Compile Include="Strategies\%40Strategy.cs" />
     <Compile Include="Strategies\AlgoSystemBase.cs" />
+    <Compile Include="Strategies\ATSQuadroStategyBase\ATSQuadroStrategyBase.Common.cs" />
+    <Compile Include="Strategies\ATSQuadroStategyBase\ATSQuadroStrategyBaseOrdersLayerBase.cs" />
+    <Compile Include="Strategies\ATSQuadroStategyBase\ATSQuadroStrategyBaseTradeManLayerBase.cs" />
+    <Compile Include="Strategies\ATSQuadroStategyBase\ATSQuadroStrategyBaseTradingRulesLayerBase.cs" />
+    <Compile Include="Strategies\ATSQuadroStategyBase\ATSQuadroStrategyBaseTradingUILayerBase.cs" />
+    <Compile Include="Strategies\ATSQuadroStategyBase\ATSQuadroStrategyBaseTradingUILayerBase.Properties.cs" />
+    <Compile Include="Strategies\ATSQuadroStrategyBase.GUI\ATSQuadroBaseStrategyPropertyGridPopUp.xaml.cs">
+      <DependentUpon>ATSQuadroBaseStrategyPropertyGridPopUp.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Strategies\ATSQuadroStrategyBase.GUI\UserControlNinjaBuddy.xaml.txt.cs" />
+    <Compile Include="Strategies\ATSSampleMACrossOver.cs" />
+    <Compile Include="Strategies\ATSSamplePriceReversalTest.cs" />
+    <Compile Include="Strategies\ATSSamplePriceReversalTestHybridAlgo.cs" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="AddOns\" />
@@ -97,6 +115,15 @@
     <Folder Include="ChartStyles\" />
     <Folder Include="DrawingTools\" />
     <Folder Include="Views\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Include="Strategies\ATSQuadroStrategyBase.GUI\ATSQuadroBaseStrategyPropertyGridPopUp.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Strategies\ATSQuadroStrategyBase.GUI\UserControlNinjaBuddy.xaml.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

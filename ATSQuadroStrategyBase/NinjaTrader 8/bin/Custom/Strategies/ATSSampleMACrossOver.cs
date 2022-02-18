@@ -34,11 +34,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private int signalBars = 3;
         private int trailLookBackBars = 3;
         private double longStopPrice = 0, shortStopPrice = 0;
-        private readonly object inManageCurrentPositionLock = new object();
-        private bool inManageCurrentPosition = false;
         private int stopSize = 28;
-
-
         private SMA smaFast;
         private SMA smaSlow;
 
@@ -122,16 +118,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                 //if mode 2 wait for flat  -reset any
                 if (TradeSignalPullBackOCOMode == 2 && Position.MarketPosition != MarketPosition.Flat) AlgoSignalAction = AlgoSignalAction.None;
             }
-
-            if (base.Position.MarketPosition != MarketPosition.Flat)
-            {
-                //if not signals and we have a postiion and the underlying tradeworkflow is not midflight  -do some trade management
-                if ((AlgoSignalAction == AlgoSignalAction.None) && base.IsTradeWorkFlowReady())
-                {
-                    this.TradeManagement(Closes[0][0]);
-                }
-            }
-
 
             base.OnBarUpdate();
 
@@ -288,27 +274,8 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 
 
-        public void TradeManagement(double lastPrice)
+        public override void TradeManagement(double lastPrice)
         {
-            //make sure something is not midflight suchj as order operations
-            if (!base.IsTradeWorkFlowReady())
-                return;
-
-            //use this to guard against multiple thread entry
-            if (inManageCurrentPosition)
-                return;
-
-            lock (inManageCurrentPositionLock)
-            {
-                if (inManageCurrentPosition)
-                    return;
-
-                inManageCurrentPosition = true;
-            }
-
-
-
-
             //if some rule says to exit  you can call ito the workflow and execute an exit
             // base.TradeWorkFlow = base.ProcessWorkFlow(StrategyTradeWorkFlowState.ExitTrade);
             // this.inManageCurrentPosition = false;  unlock
@@ -412,10 +379,6 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 Print(string.Format("TradeManagement >> Error >> {0}" + ex.ToString()));
             }
-
-            this.inManageCurrentPosition = false;
-
-
         }
 
 
