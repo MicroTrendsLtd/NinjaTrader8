@@ -35,48 +35,56 @@ namespace ATSQuadroStrategyBase.GUI
         public UserControlEasyConfig()
         {
             InitializeComponent();
-            
+
         }
 
         private void BtnLoad_Click(object sender, RoutedEventArgs e)
         {
-            OnLoadClick?.Invoke(this, e);
+
+            if (OnLoadClick != null)
+                OnLoadClick.Invoke(this, e);
         }
 
         private void BtnRefresh_Click(object sender, RoutedEventArgs e)
         {
-            OnRefreshClick?.Invoke(this, e);
+            if (OnRefreshClick != null)
+                OnRefreshClick.Invoke(this, e);
         }
 
         private void BtnSave_Click(object sender, RoutedEventArgs e)
         {
-            OnSaveClick?.Invoke(this, e);
+            if (OnSaveClick != null)
+                OnSaveClick.Invoke(this, e);
         }
 
         private void BtnSaveAs_Click(object sender, RoutedEventArgs e)
         {
-            OnSaveAsClick?.Invoke(this, e);
+            if (OnSaveAsClick != null)
+                OnSaveAsClick.Invoke(this, e);
         }
 
         private void BtnOk_Click(object sender, RoutedEventArgs e)
         {
-            OnOkClick?.Invoke(this, e);
+
+            if (OnOkClick != null) OnOkClick.Invoke(this, e);
         }
 
         private void BtnApply_Click(object sender, RoutedEventArgs e)
         {
-            OnApplyClick?.Invoke(this, e);
+
+            if (OnApplyClick != null) OnApplyClick.Invoke(this, e);
 
         }
 
         private void BtnCancel_Click(object sender, RoutedEventArgs e)
         {
-            OnCancelClick?.Invoke(this, e);
+
+            if (OnCancelClick != null) OnCancelClick.Invoke(this, e);
         }
 
         private void BtnRestart_Click(object sender, RoutedEventArgs e)
         {
-            OnRestartClick?.Invoke(this, e);
+            if (OnRestartClick != null) OnRestartClick.Invoke(this, e);
         }
 
 

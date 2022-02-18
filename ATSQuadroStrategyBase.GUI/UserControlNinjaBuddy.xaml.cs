@@ -50,7 +50,7 @@ namespace ATSQuadroStrategyBase.GUI
         {
             InitializeComponent();
 
-            try 
+            try
             {
                 shortTextColor = Brushes.Red;
                 longTextColor = Brushes.LimeGreen;
@@ -62,7 +62,7 @@ namespace ATSQuadroStrategyBase.GUI
 
 
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Debug.Print(ex.ToString());
             }
@@ -99,122 +99,123 @@ namespace ATSQuadroStrategyBase.GUI
             {
                 this.textBoxHeaderPL.Foreground = Brushes.Black;
             }
-            else  if (textUnrealizedPL.Text.Contains("-"))
+            else if (textUnrealizedPL.Text.Contains("-"))
             {
                 this.textBoxHeaderPL.Foreground = shortTextColor;
             }
-           else
+            else
             {
                 this.textBoxHeaderPL.Foreground = longTextColor;
             }
 
         }
-        
+
 
         private void cbAutomatedTrading_Checked(object sender, RoutedEventArgs e)
         {
-            OnAutoClick?.Invoke(this, e);
+
+            if (OnAutoClick != null) OnAutoClick.Invoke(this, e);
         }
 
         private void cbAutomatedTrading_Unchecked(object sender, RoutedEventArgs e)
         {
-            OnAutoClick?.Invoke(this, e);
+            if (OnAutoClick != null) OnAutoClick.Invoke(this, e);
         }
 
         private void cbAutoLong_Checked(object sender, RoutedEventArgs e)
         {
-            OnAutoLongClick?.Invoke(this, e);
+            if (OnAutoLongClick != null) OnAutoLongClick.Invoke(this, e);
         }
 
         private void cbAutoLong_Unchecked(object sender, RoutedEventArgs e)
         {
-            OnAutoLongClick?.Invoke(this, e);
+            if (OnAutoLongClick != null) OnAutoLongClick.Invoke(this, e);
         }
 
         private void cbAutoShort_Unchecked(object sender, RoutedEventArgs e)
         {
-            OnAutoShortClick?.Invoke(this, e);
+            if (OnAutoShortClick != null) OnAutoShortClick.Invoke(this, e);
         }
 
         private void cbAutoShort_Checked(object sender, RoutedEventArgs e)
         {
-            OnAutoShortClick?.Invoke(this, e);
+            if (OnAutoShortClick != null) OnAutoShortClick.Invoke(this, e);
         }
 
         private void btnBoxClear_Click(object sender, RoutedEventArgs e)
         {
-            OnBoxClearClick?.Invoke(this, e);
+            if (OnBoxClearClick != null) OnBoxClearClick.Invoke(this, e);
         }
 
         private void btnBuy_Click(object sender, RoutedEventArgs e)
         {
-            OnBuyClick?.Invoke(this, e);
+            if (OnBuyClick != null) OnBuyClick.Invoke(this, e);
         }
 
         private void btnSell_Click(object sender, RoutedEventArgs e)
         {
-            OnSellClick?.Invoke(this, e);
+            if (OnSellClick != null) OnSellClick.Invoke(this, e);
         }
 
         private void btnOCOBreakout_Click(object sender, RoutedEventArgs e)
         {
-            OnOCOBreakoutClick?.Invoke(this, e);
+            if (OnOCOBreakoutClick != null) OnOCOBreakoutClick.Invoke(this, e);
         }
 
         private void cbUpper_Checked(object sender, RoutedEventArgs e)
         {
-            OnBoxUpperClick?.Invoke(this, e);
+            if (OnBoxUpperClick != null) OnBoxUpperClick.Invoke(this, e);
         }
 
         private void cbLower_Checked(object sender, RoutedEventArgs e)
         {
-            OnBoxLowerClick?.Invoke(this, e);
+            if (OnBoxLowerClick != null) OnBoxLowerClick.Invoke(this, e);
         }
 
         private void btnClosePositions_Click(object sender, RoutedEventArgs e)
         {
-            OnCloseClick?.Invoke(this, e);
-            
+            if (OnCloseClick != null) OnCloseClick.Invoke(this, e);
+
         }
 
         private void btnTrail50_Click(object sender, RoutedEventArgs e)
         {
-            OnTrail50Click?.Invoke(this, e);
+            if (OnTrail50Click != null) OnTrail50Click.Invoke(this, e);
         }
 
         private void btnTrailHiLo_Click(object sender, RoutedEventArgs e)
         {
-            OnTrailHiLoClick?.Invoke(this, e);
+            if (OnTrailHiLoClick != null) OnTrailHiLoClick.Invoke(this, e);
         }
 
         private void btnBreakEven_Click(object sender, RoutedEventArgs e)
         {
-            OnBreakEvenClick?.Invoke(this, e);
+            if (OnBreakEvenClick != null) OnBreakEvenClick.Invoke(this, e);
         }
 
         private void btnSetTrail_Click(object sender, RoutedEventArgs e)
         {
-            OnTrailTriggerClick?.Invoke(this, e);
+            if (OnTrailTriggerClick != null) OnTrailTriggerClick.Invoke(this, e);
         }
 
         private void btnTrail1_Click(object sender, RoutedEventArgs e)
         {
-            OnTrail1Click?.Invoke(this, e);
+            if (OnTrail1Click != null) OnTrail1Click.Invoke(this, e);
         }
 
         private void btnTrail2_Click(object sender, RoutedEventArgs e)
         {
-            OnTrail2Click?.Invoke(this, e);
+            if (OnTrail2Click != null) OnTrail2Click.Invoke(this, e);
         }
 
         private void btnTrail3_Click(object sender, RoutedEventArgs e)
         {
-            OnTrail3Click?.Invoke(this, e);
+            if (OnTrail3Click != null) OnTrail3Click.Invoke(this, e);
         }
 
         private void btnTrail4_Click(object sender, RoutedEventArgs e)
         {
-            OnTrail4Click?.Invoke(this, e);
+            if (OnTrail4Click != null) OnTrail4Click.Invoke(this, e);
         }
 
         private void HeaderSite_Checked(object sender, RoutedEventArgs e)
@@ -222,6 +223,6 @@ namespace ATSQuadroStrategyBase.GUI
 
         }
 
-       
+
     }
 }
