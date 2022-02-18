@@ -60,6 +60,9 @@
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="UserControlStrategyConfig.xaml.cs">
+      <DependentUpon>UserControlStrategyConfig.xaml</DependentUpon>
+    </Compile>
     <Compile Include="UserControlEasyConfig.xaml.cs">
       <DependentUpon>UserControlEasyConfig.xaml</DependentUpon>
     </Compile>
@@ -68,6 +71,10 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <Page Include="UserControlStrategyConfig.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="UserControlEasyConfig.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
