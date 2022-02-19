@@ -2,10 +2,10 @@
 NinjaTrader8 Components Strategies and Trading tools
 
 ATSQuadroStrategyBase
-Algorithmic Trading Framework NinjaTrader 8 UnManaged Trade Engine for Automated Trading Systems.
+Hybrid Algorithmic Trading Framework NinjaTrader 8 UnManaged Trade Engine for Automated Trading Systems.
 Developer: Tom Leeson of MicroTrends LTd www.microtrends.pro
 
-About: ATSQuadroStrategyBase is a NinjaTrader 8 Strategy unmanaged mode trade engine base foundation for futures, comprising of 4 Bracket capacity, all In scale out non position compounding,  prevents overfills and builds on functionality provided by the Managed approach for NinjaTrader Strategies. 
+About: ATSQuadroStrategyBase is a NinjaTrader 8 Strategy unmanaged mode trade engine base foundation for futures, comprising of 4 Bracket capacity, all In scale out non position compounding,  prevents overfills and builds on functionality provided by the Managed approach for NinjaTrader Strategies  -which includes different layers of features to derive from - the very top layer is the Hybrid layer that has UI controls to allow semi/auto modes in trading the best of both worlds - in progress.
 
 GitHub Main Branch:
 https://github.com/MicroTrendsLtd/NinjaTrader8/tree/main/ATSQuadroStrategyBase
