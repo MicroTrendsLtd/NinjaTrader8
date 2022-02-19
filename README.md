@@ -32,11 +32,6 @@ The system is really a generic engine to allow most day trading applications to 
 
 
 **ATSQuadroStrategyBase.GUI V 2022.2.17.3**
-2022/02/17 - 
-New Features GUI for hybrid trading control in realtime and configuration
+This project is for WPF developers to look or modify etc.
+The UI components are modified down used as open source in the ATSQuadroStrategyBase strategy code base to avoid the need for compiled side by side etc:
 https://github.com/MicroTrendsLtd/NinjaTrader8/tree/main/ATSQuadroStrategyBase.GUI
-
-so the idea from here is the output the ATSQuadroStrategyBase.GUI.dll would be used in NinjaTrader custom as a side by side assembly and so thusly needs to be added as a reference within NT8 Code editor... \Documents\NinjaTrader 8\bin\Custom\ATSQuadroStrategyBase.GUI.dll
-helper code to come for how to use it in the strategy base to come...
-
-but....if folks want to make it more open so its compiled and loaded at runtime that can be done also i guess easy enough just add in the partial autogen code from the "initialiaze" and idk but that should work with some tinkering i guess.  so more to come on this...  it needs testing and so forth
