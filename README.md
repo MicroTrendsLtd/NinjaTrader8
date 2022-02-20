@@ -10,15 +10,10 @@ About: ATSQuadroStrategyBase is a NinjaTrader 8 Strategy unmanaged mode trade en
 GitHub Main Branch:
 https://github.com/MicroTrendsLtd/NinjaTrader8/tree/main/ATSQuadroStrategyBase
 
-
-Getting the code as of 2022/02/18
-Get and map the code folder NinjaTrader 8 to the local documents NinjaTrader 8 folder or get the code and manually copy over the NinjaTrader Project Folder and use the NinjaTrader Custom Project  - see issue #56
-
-NinjaTrader Links and Info
-https://ninjatrader.com/support/forum/forum/ninjascript-file-sharing/ninjascript-file-sharing-discussion/1126945-atsquadrostrategybase-nt8-strategy-foundation-with-samplemacrossover
-
+How to install please see here:
+https://github.com/MicroTrendsLtd/NinjaTrader8/discussions/61#discussion-3889698
 
 **ATSQuadroStrategyBase.GUI V 2022.2.17.3**
-This project is for WPF developers to look or modify etc.
+This project is for WPF developers to look or modify ets - this is not needed for the above its purely for reference or to action enhancements to UI
 The UI components are modified down used as open source in the ATSQuadroStrategyBase strategy code base to avoid the need for compiled side by side etc:
 https://github.com/MicroTrendsLtd/NinjaTrader8/tree/main/ATSQuadroStrategyBase.GUI
