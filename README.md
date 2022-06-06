@@ -24,7 +24,7 @@ https://github.com/MicroTrendsLtd/NinjaTrader8/discussions/61#discussion-3889698
 https://github.com/MicroTrendsLtd/NinjaTrader8/discussions/65#discussion-4123348
 
 **About: ATSQuadroStrategyBase**
-NinjaTrader 8 Strategy unmanaged mode trade engine base foundation for futures, comprising of 4 Bracket capacity, all In scale out - Single Entry Position - Multiple Exits pee trade operation "non position compounding". The Engine prevents overfills and builds on functionality provided by the Managed approach for NinjaTrader Strategies  -which includes different layers of features to derive from - the very top layer is the Hybrid layer that has UI controls to allow semi/auto modes in trading the best of both worlds - in progress.
+NinjaTrader 8 Strategy unmanaged mode trade engine base foundation for futures, comprising of 4 Bracket capacity, all In scale out - Single Entry Position - Multiple Exits per trade operation "non position compounding". The Engine prevents overfills and builds on functionality provided by the Managed approach for NinjaTrader Strategies  -which includes different layers of features to derive from - the very top layer is the Hybrid layer that has UI controls to allow semi/auto modes in trading the best of both worlds - in progress.
 
 ![image](https://user-images.githubusercontent.com/24366913/172206832-bf7eaaf7-32d9-4f9f-9d24-9b8ef85e6b64.png)
 
