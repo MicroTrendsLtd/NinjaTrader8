@@ -8,8 +8,10 @@ Developer: Tom Leeson of MicroTrends LTd www.microtrends.pro
 **Status**
 This project will be evolved as time and resources allow and needs dictates
 
-**Collaborate & Discuss - How to**
+**Collaborate & Discuss**
 All welcome to contribute discuss share collaborate. 
+
+**Get Started**
 https://github.com/MicroTrendsLtd/NinjaTrader8/discussions
 
 **Installation**
