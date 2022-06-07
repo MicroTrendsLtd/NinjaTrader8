@@ -6,24 +6,24 @@ Hybrid Algorithmic Trading Framework NinjaTrader 8 UnManaged Trade Engine for Au
 Developer: Tom Leeson of MicroTrends LTd www.microtrends.pro
 
 **Status**
-This project will be evolved as time and resources allow and needs dictates
+This project is ongoing slowly...will be evolved as time and resources allow and needs dictates
 
 **Collaborate & Discuss**
 All welcome to contribute discuss share collaborate. 
 
-**1. Get Started - Docs**
+**1. Get Started - Docs:**
 https://github.com/MicroTrendsLtd/NinjaTrader8/discussions
 
-**2. Installation**
+**2. Installation:**
 https://github.com/MicroTrendsLtd/NinjaTrader8/discussions/61
 
-**3. NT8 Code Editor Setup**
+**3. NT8 Code Editor Setup:**
 https://github.com/MicroTrendsLtd/NinjaTrader8/discussions/65
 
-**Issues bugs post here**
+**4. Issues bugs post here:**
 https://github.com/MicroTrendsLtd/NinjaTrader8/issues
 
-**Questions & Discussions**
+**5. Questions & Discussions here:**
 https://github.com/MicroTrendsLtd/NinjaTrader8/discussions
 
 **About: ATSQuadroStrategyBase**
