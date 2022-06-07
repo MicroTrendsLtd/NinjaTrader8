@@ -12,10 +12,10 @@ This project will be evolved as time and resources allow and needs dictates
 All welcome to contribute discuss share collaborate. 
 
 **Installation**
-https://github.com/MicroTrendsLtd/NinjaTrader8/discussions/61#discussion-3889698
+https://github.com/MicroTrendsLtd/NinjaTrader8/discussions/61
 
 **NT8 Code Editor Setup**
-https://github.com/MicroTrendsLtd/NinjaTrader8/discussions/65#discussion-4123348
+https://github.com/MicroTrendsLtd/NinjaTrader8/discussions/65
 
 **Issues bugs post here**
 https://github.com/MicroTrendsLtd/NinjaTrader8/issues
