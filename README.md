@@ -1,5 +1,6 @@
 # NinjaTrader8
 NinjaTrader8 Components Strategies and Trading tools
+Basic to good C# programming development and NinjaTrader 8 skills are required.
 
 **ATSQuadroStrategyBase**
 Hybrid Algorithmic Trading Framework NinjaTrader 8 UnManaged Trade Engine for Automated Trading Systems.
@@ -20,10 +21,14 @@ https://github.com/MicroTrendsLtd/NinjaTrader8/discussions/61
 **3. NT8 Code Editor Setup:**
 https://github.com/MicroTrendsLtd/NinjaTrader8/discussions/65
 
-**4. Issues bugs post here:**
+**4. Launch the strategy in NT8:**
+After compiling connect to a datafeed and start a start a strategy.
+ATSSamplePriceReversalTestHybridAlgo.cs
+
+**5. Issues bugs post here:**
 https://github.com/MicroTrendsLtd/NinjaTrader8/issues
 
-**5. Questions & Discussions here:**
+**6. Questions & Discussions here:**
 https://github.com/MicroTrendsLtd/NinjaTrader8/discussions
 
 **About: ATSQuadroStrategyBase**
