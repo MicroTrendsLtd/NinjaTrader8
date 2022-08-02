@@ -1149,7 +1149,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                             else
                                 TradeWorkFlow = StrategyTradeWorkFlowState.GoShortSubmitOrderWorking;
                         }
-                        else if (order == orderEntryOCOLong || order == orderEntryOCOLong)
+                        else if (order == orderEntryOCOLong || order == orderEntryOCOShort)
                         {
                             TradeWorkFlow = StrategyTradeWorkFlowState.GoOCOLongShortSubmitOrderWorking;
                         }
