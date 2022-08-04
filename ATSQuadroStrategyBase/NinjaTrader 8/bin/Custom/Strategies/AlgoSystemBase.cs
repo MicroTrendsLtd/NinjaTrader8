@@ -977,7 +977,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                 }
 
-                if (IsPlayBack) return;
+                if (IsPlayBack  && !IsPlayBackHandleOnOrderUpdate) return;
 
 
                 #region order tracking for entry, stops and targets
@@ -4631,8 +4631,8 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsFlattenOnTransition", Description = "Realtime Trading Flatten all historical positions and cancel orders - to prevent caveats caused by historical trades becoming realtime and to prevent the need to wait for a historical trade postion to close in realtime prior to realtime trading")]
         public bool IsFlattenOnTransition { get; set; }
 
-
-
+        [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsPlayBackHandleOnOrderUpdate", Description = "IsPlayBackHandleOnOrderUpdate True or False")]
+        public bool IsPlayBackHandleOnOrderUpdate { get;set; }
 
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsRealtimeTradingOnly", Description = "Realtime Trading Only True or False")]
         public bool IsRealtimeTradingOnly
@@ -4640,6 +4640,8 @@ namespace NinjaTrader.NinjaScript.Strategies
             get { return realtimeTradingOnly; }
             set { realtimeTradingOnly = value; }
         }
+        
+        
 
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsSubmitTargetsAndConfirm", Description = "Confirm Target Placement or skip")]
         public bool IsSubmitTargetsAndConfirm { get; set; }
