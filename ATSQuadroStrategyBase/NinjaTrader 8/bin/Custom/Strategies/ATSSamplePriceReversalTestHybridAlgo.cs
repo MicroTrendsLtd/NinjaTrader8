@@ -81,13 +81,16 @@ namespace NinjaTrader.NinjaScript.Strategies
             //Trade Engine Signal State to pass in
             AlgoSignalAction = AlgoSignalAction.None;
 
-            //Price mode
-            if (TradeSignalType1 == 1)
+            if(StratCanTrade)
             {
-                if (base.Position.MarketPosition != MarketPosition.Long && Close[0] > Open[0])
-                    AlgoSignalAction = AlgoSignalAction.GoLong;
-                else if (base.Position.MarketPosition != MarketPosition.Short && Close[0] < Open[0])
-                    AlgoSignalAction = AlgoSignalAction.GoShort;
+                //Price mode
+                if (TradeSignalType1 == 1)
+                {
+                    if (StratCanTradeLong && base.Position.MarketPosition != MarketPosition.Long && Close[0] > Open[0])
+                        AlgoSignalAction = AlgoSignalAction.GoLong;
+                    else if (StratCanTradeShort  && base.Position.MarketPosition != MarketPosition.Short && Close[0] < Open[0])
+                        AlgoSignalAction = AlgoSignalAction.GoShort;
+                }
             }
 
 
