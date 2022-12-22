@@ -91,8 +91,8 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
 
 
-
-            if (base.Position.MarketPosition != MarketPosition.Flat)
+//can remove this as its done already in base class
+            if (base.Position.MarketPosition != MarketPosition.Flat  && IsTradeManagementEnabled)
             {
                 //if not signals and we have a postiion and the underlying tradeworkflow is not midflight  -do some trade management
                 if ((AlgoSignalAction == AlgoSignalAction.None) && base.IsTradeWorkFlowReady())
