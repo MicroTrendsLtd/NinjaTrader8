@@ -3510,20 +3510,32 @@ namespace NinjaTrader.NinjaScript.Strategies
             //make sure something is not midflight such as order operations
             if (!IsTradeWorkFlowReady())
                 return;
+                
             //use this to guard against multiple thread entry from OnMarket data and onBarUpdate
             if (isInTradeManagementProcessInternal)
                 return;
+            
+            //fine grain lock
             lock (lockObjectTradeManInternal)
             {
                 if (isInTradeManagementProcessInternal)
                     return;
+                    
                 isInTradeManagementProcessInternal = true;
-            
-                TradeManagement(lastPrice);
-
-                isInTradeManagementProcessInternal = false;
             }
+
+           //add defensive code in case user override has error so the unlock occurs
+            try
+            {
+                TradeManagement(lastPrice);
+            }
+            catch(Exception ex)
+            {
+                Print("TradeManagement > Error: " + ex.ToString());
+            }
+            isInTradeManagementProcessInternal = false;
         }
+        
         public virtual void TradeManagement(double lastPrice)
         {
 
