@@ -3507,8 +3507,8 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
         private void TradeManagementExecInternal(double lastPrice)
         {
-            //make sure something is not midflight such as order operations
-            if (!IsTradeWorkFlowReady())
+            //test IsTradeManagementEnabled -- make sure something is not midflight such as order operations
+            if (!IsTradeManagementEnabled || !IsTradeWorkFlowReady())
                 return;
                 
             //use this to guard against multiple thread entry from OnMarket data and onBarUpdate
@@ -3527,7 +3527,7 @@ namespace NinjaTrader.NinjaScript.Strategies
            //add defensive code in case user override has error so the unlock occurs
             try
             {
-                TradeManagement(lastPrice);
+                  TradeManagement(lastPrice);
             }
             catch(Exception ex)
             {
