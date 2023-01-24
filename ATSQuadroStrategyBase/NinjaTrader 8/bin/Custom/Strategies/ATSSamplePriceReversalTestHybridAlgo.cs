@@ -94,17 +94,6 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
 
 
-//can remove this as its done already in base class
-            if (base.Position.MarketPosition != MarketPosition.Flat  && IsTradeManagementEnabled)
-            {
-                //if not signals and we have a postiion and the underlying tradeworkflow is not midflight  -do some trade management
-                if ((AlgoSignalAction == AlgoSignalAction.None) && base.IsTradeWorkFlowReady())
-                {
-                    this.TradeManagement(Closes[0][0]);
-                }
-            }
-
-
             base.OnBarUpdate();
 
         }
@@ -262,11 +251,6 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         public override void TradeManagement(double lastPrice)
         {
-
-            //if some rule says to exit  you can call ito the workflow and execute an exit
-            // base.TradeWorkFlow = base.ProcessWorkFlow(StrategyTradeWorkFlowState.ExitTrade);
-            // this.inManageCurrentPosition = false;  unlock
-            //return before the next section if so... return
 
             try
             {
