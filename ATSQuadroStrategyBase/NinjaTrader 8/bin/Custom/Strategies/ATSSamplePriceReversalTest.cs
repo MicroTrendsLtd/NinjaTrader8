@@ -91,17 +91,6 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
 
 
-
-            if (base.Position.MarketPosition != MarketPosition.Flat)
-            {
-                //if not signals and we have a postiion and the underlying tradeworkflow is not midflight  -do some trade management
-                if ((AlgoSignalAction == AlgoSignalAction.None) && base.IsTradeWorkFlowReady())
-                {
-                    this.TradeManagement(Closes[0][0]);
-                }
-            }
-
-
             base.OnBarUpdate();
 
         }
