@@ -612,7 +612,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         if (ATSAlgoSystemState == AlgoSystemState.Transition)
                             ATSAlgoSystemState = AlgoSystemState.Realtime;
 
-                        // one time only, as we transition from historical to real-time - doesnt seem to work  for unmanaged mode
+                        // one time only, as we transition from historical to real-time - doesnt seem to work for unmanaged mode
                         // the work around was to use order names and reference them OnOrderUpdate
                         //https://ninjatrader.com/support/helpGuides/nt8/?getrealtimeorder.htm
 
@@ -3507,21 +3507,22 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
         private void TradeManagementExecInternal(double lastPrice)
         {
-            //make sure something is not midflight suchj as order operations
+            //make sure something is not midflight such as order operations
             if (!IsTradeWorkFlowReady())
                 return;
-
             //use this to guard against multiple thread entry from OnMarket data and onBarUpdate
             if (isInTradeManagementProcessInternal)
                 return;
-
             lock (lockObjectTradeManInternal)
             {
                 if (isInTradeManagementProcessInternal)
                     return;
                 isInTradeManagementProcessInternal = true;
+            
+                TradeManagement(lastPrice);
+
+                isInTradeManagementProcessInternal = false;
             }
-            TradeManagement(lastPrice);
         }
         public virtual void TradeManagement(double lastPrice)
         {
