@@ -348,7 +348,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
             catch (Exception ex)
             {
-                Print(string.Format("TradeManagement >> Error >> {0}" + ex.ToString()));
+                Print(string.Format("TradeManagement >> Error >> {0}",  ex.ToString()));
             }
 
 
