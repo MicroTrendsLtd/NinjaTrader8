@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -50,7 +50,7 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
     <Reference Include="System.Windows.Controls.WpfPropertyGrid">
-      <HintPath>..\..\..\..\..\..\..\..\..\..\Program Files (x86)\NinjaTrader 8\bin64\System.Windows.Controls.WpfPropertyGrid.dll</HintPath>
+      <HintPath>c:\Program Files\NinjaTrader 8\bin\System.Windows.Controls.WpfPropertyGrid.dll</HintPath>
     </Reference>
     <Reference Include="System.Xaml" />
     <Reference Include="System.Xml" />
@@ -69,19 +69,19 @@
       <HintPath>C:\WINDOWS\Microsoft.NET\Framework\v4.0.30319\WPF\UIAutomationProvider.dll</HintPath>
     </Reference>
     <Reference Include="Infralution.Localization.Wpf">
-      <HintPath>C:\Program Files (x86)\NinjaTrader 8\bin64\Infralution.Localization.Wpf.dll</HintPath>
+      <HintPath>C:\Program Files\NinjaTrader 8\bin\Infralution.Localization.Wpf.dll</HintPath>
     </Reference>
     <Reference Include="NinjaTrader.Core">
-      <HintPath>C:\Program Files (x86)\NinjaTrader 8\bin64\NinjaTrader.Core.dll</HintPath>
+      <HintPath>C:\Program Files\NinjaTrader 8\bin\NinjaTrader.Core.dll</HintPath>
     </Reference>
     <Reference Include="NinjaTrader.Gui">
-      <HintPath>C:\Program Files (x86)\NinjaTrader 8\bin64\NinjaTrader.Gui.dll</HintPath>
+      <HintPath>C:\Program Files\NinjaTrader 8\bin\NinjaTrader.Gui.dll</HintPath>
     </Reference>
     <Reference Include="SharpDX">
-      <HintPath>C:\Program Files (x86)\NinjaTrader 8\bin64\SharpDX.dll</HintPath>
+      <HintPath>C:\Program Files\NinjaTrader 8\bin\SharpDX.dll</HintPath>
     </Reference>
     <Reference Include="SharpDX.Direct2D1">
-      <HintPath>C:\Program Files (x86)\NinjaTrader 8\bin64\SharpDX.Direct2D1.dll</HintPath>
+      <HintPath>C:\Program Files\NinjaTrader 8\bin\SharpDX.Direct2D1.dll</HintPath>
     </Reference>
     <Reference Include="System.Management">
       <HintPath>C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.5\System.Management.dll</HintPath>
@@ -95,12 +95,12 @@
     <Compile Include="MarketAnalyzerColumns\%40MarketAnalyzerColumn.cs" />
     <Compile Include="Strategies\%40Strategy.cs" />
     <Compile Include="Strategies\AlgoSystemBase.cs" />
-    <Compile Include="Strategies\ATSQuadroStategyBase\ATSQuadroStrategyBase.Common.cs" />
-    <Compile Include="Strategies\ATSQuadroStategyBase\ATSQuadroStrategyBaseOrdersLayerBase.cs" />
-    <Compile Include="Strategies\ATSQuadroStategyBase\ATSQuadroStrategyBaseTradeManLayerBase.cs" />
-    <Compile Include="Strategies\ATSQuadroStategyBase\ATSQuadroStrategyBaseTradingRulesLayerBase.cs" />
-    <Compile Include="Strategies\ATSQuadroStategyBase\ATSQuadroStrategyBaseTradingUILayerBase.cs" />
-    <Compile Include="Strategies\ATSQuadroStategyBase\ATSQuadroStrategyBaseTradingUILayerBase.Properties.cs" />
+    <Compile Include="Strategies\ATSQuadroStrategyBase\ATSQuadroStrategyBase.Common.cs" />
+    <Compile Include="Strategies\ATSQuadroStrategyBase\ATSQuadroStrategyBaseOrdersLayerBase.cs" />
+    <Compile Include="Strategies\ATSQuadroStrategyBase\ATSQuadroStrategyBaseTradeManLayerBase.cs" />
+    <Compile Include="Strategies\ATSQuadroStrategyBase\ATSQuadroStrategyBaseTradingRulesLayerBase.cs" />
+    <Compile Include="Strategies\ATSQuadroStrategyBase\ATSQuadroStrategyBaseTradingUILayerBase.cs" />
+    <Compile Include="Strategies\ATSQuadroStrategyBase\ATSQuadroStrategyBaseTradingUILayerBase.Properties.cs" />
     <Compile Include="Strategies\ATSQuadroStrategyBase.GUI\ATSQuadroBaseStrategyPropertyGridPopUp.xaml.cs">
       <DependentUpon>ATSQuadroBaseStrategyPropertyGridPopUp.xaml</DependentUpon>
     </Compile>
