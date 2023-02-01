@@ -1358,8 +1358,8 @@ namespace NinjaTrader.NinjaScript.Strategies
         {
             if (marketDataUpdate.MarketDataType == MarketDataType.Bid || marketDataUpdate.MarketDataType == MarketDataType.Ask)
             {
-                if (DateTime.Now < onMarketDataBidTimeNextAllowed) return;
-                onMarketDataBidTimeNextAllowed = DateTime.Now.AddMilliseconds(250);
+                if (Now < onMarketDataBidTimeNextAllowed) return;
+                onMarketDataBidTimeNextAllowed = Now.AddMilliseconds(250);
                 AskPrice = marketDataUpdate.Ask;
                 BidPrice = marketDataUpdate.Bid;
                 return;
@@ -1372,13 +1372,13 @@ namespace NinjaTrader.NinjaScript.Strategies
             LastPrice = marketDataUpdate.Price;
 
             //process min of 1 second
-            if (DateTime.Now < onMarketDataTimeNextAllowed) return;
-            onMarketDataTimeNextAllowed = DateTime.Now.AddSeconds(1);
+            if (Now < onMarketDataTimeNextAllowed) return;
+            onMarketDataTimeNextAllowed = Now.AddSeconds(1);
 
             //calcualte position min of every 2 secs
-            if (DateTime.Now > onMarketDataPositionInfoNextAllowed)
+            if (Now > onMarketDataPositionInfoNextAllowed)
             {
-                onMarketDataPositionInfoNextAllowed = DateTime.Now.AddSeconds(2);
+                onMarketDataPositionInfoNextAllowed = Now.AddSeconds(2);
                 if (Position.MarketPosition == MarketPosition.Flat)
                 {
                     PositionInfo = string.Format("{0}", Position.MarketPosition.ToString());
@@ -1412,11 +1412,12 @@ namespace NinjaTrader.NinjaScript.Strategies
             try
             {
                 //if !IsTradeWorkFlowReady() and we get an TradeWorkFlowTimeOut in a non Error case- set WF to Error and 
-                if (!IsTradeWorkFlowReady() && !IsTradeWorkFlowInErrorState() && TradeWorkFlowLastChanged < DateTime.Now.AddSeconds(-1 * TradeWorkFlowTimeOut))
+                if (!IsTradeWorkFlowReady() && !IsTradeWorkFlowInErrorState() && TradeWorkFlowLastChanged < Now.AddSeconds(-1 * TradeWorkFlowTimeOut))
                 {
-                    if (tracing)
+                    if (tracing) { 
                         Print("OnMarketData >> TWF >> ErrorTimeOut");
-
+                        Print(String.Format("{0} < {1}", TradeWorkFlowLastChanged, Now.AddSeconds(-1 * TradeWorkFlowTimeOut)));
+                    }
                     TradeWorkFlow = StrategyTradeWorkFlowState.ErrorTimeOut;
                     //ProcessWorkFlow(StrategyTradeWorkFlowState.ErrorTimeOut);
 
@@ -1774,11 +1775,11 @@ namespace NinjaTrader.NinjaScript.Strategies
                     return;
                 }
 
-                if (IsHistoricalTradeOrPlayBack || IsOrderCancelInspectEachOrDoBatchCancel)
+                if (IsOrderCancelInspectEachOrDoBatchCancel)
                 {
 
                     if (tracing)
-                        Print("CancelAllOrders() > IsHistOrPBack || IsCancelInspectEach");
+                        Print("CancelAllOrders() > IsCancelInspectEach");
 
                     //call cancel as orderstate is unreliable check for nulls
                     if (IsOrderActiveCanCancel(orderStop1)) CancelOrder(orderStop1);
@@ -1810,7 +1811,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                         //the caveats here as we cancel ordersActiveConcDict is being removed of the cancelled order
                         //on that basis if this is a no go- use a copy to iterate  ordersActiveConcDict.Values.ToArray() etc
-                        foreach (Order orderToCancel in ordersActiveConcDict.Values)
+                        foreach (Order orderToCancel in ordersActiveConcDict.Values.ToArray())
                         {
                             if (!IsOrderActiveCanCancel(orderToCancel) || (IsOrderCancelStopsOnly && OrdersProfitTarget.Contains(orderToCancel))) continue;
 #if DEBUG
@@ -2019,7 +2020,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         public bool IsOrderTerminated(Order o)
         {
-            return o != null && Order.IsTerminalState(o.OrderState) || ((State == State.Realtime ? o.OrderState == OrderState.Submitted && o.Time.AddSeconds(10) < DateTime.Now : false));
+            return o != null && Order.IsTerminalState(o.OrderState) || ((State == State.Realtime ? o.OrderState == OrderState.Submitted && o.Time.AddSeconds(10) < Now : false));
         }
 
         #endregion
@@ -2028,9 +2029,9 @@ namespace NinjaTrader.NinjaScript.Strategies
         {
             if (tracing) Print("SubmitSignalAction " + AlgoSignalActions.ToString() + " WF=" + this.TradeWorkFlow.ToString());
 
-            TEQ.Enqueue(new AlgoSignalActionMsq(AlgoSignalActions, IsHistoricalTradeOrPlayBack ? Time[0] : DateTime.Now, signalLabel));
+            TEQ.Enqueue(new AlgoSignalActionMsq(AlgoSignalActions, Now, signalLabel));
             #region Signal Execution
-            if (IsHistoricalTradeOrPlayBack || !IsRealtimeTradingUseQueue)
+            if (!IsRealtimeTradingUseQueue)
             {
                 if (TEQ.Count > 0) ProcessTradeEventQueue(this);
             }
@@ -2110,7 +2111,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         Print("ProcessTradeEventQueue> Peek> AlgoSignalActions " + a.ToString());
 
                     //expire signal if needed
-                    if (DateTime.Now > a.ActionDateTime.AddSeconds(TradeSignalExpiryInterval))
+                    if (Now > a.ActionDateTime.AddSeconds(TradeSignalExpiryInterval))
                     {
                         if (tracing)
                             Print("ProcessTradeEventQueue> Trade Signal TimeOut > AlgoSignalActions " + a.ToString());
@@ -2223,7 +2224,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     //trade per direction test
                     if (Position.MarketPosition == MarketPosition.Long) return ProcessWorkFlow(StrategyTradeWorkFlowState.GoLongValidationRejected);
 
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    if (IsStrategyUnSafeMode)
                     {
                         TradeWorkFlow = StrategyTradeWorkFlowState.GoLongCancelWorkingOrders;
                         goto case StrategyTradeWorkFlowState.GoLongCancelWorkingOrders;
@@ -2247,7 +2248,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.GoLongSubmitOrder);
                 case StrategyTradeWorkFlowState.GoLongCancelWorkingOrders:
 
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    if (IsStrategyUnSafeMode)
                     {
                         CancelAllOrders();
                         TradeWorkFlow = StrategyTradeWorkFlowState.GoLongClosePositions;
@@ -2289,7 +2290,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     break;
                 case StrategyTradeWorkFlowState.GoLongCancelWorkingOrdersConfirmed:
                     TradeWorkFlowOnMarketDataDisable();
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    if (IsStrategyUnSafeMode)
                     {
                         if (Position.Quantity != 0)
                         {
@@ -2308,7 +2309,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 case StrategyTradeWorkFlowState.GoLongClosePositions:
                     if (Position.Quantity != 0)
                     {
-                        if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                        if (IsStrategyUnSafeMode)
                         {
                             TradeWorkFlow = StrategyTradeWorkFlowState.GoLongClosedPositionsPending;
                             PositionCloseInternal();
@@ -2365,7 +2366,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     TradeWorkFlowOnMarketDataDisable();
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.GoLongSubmitOrder);
                 case StrategyTradeWorkFlowState.GoLongSubmitOrder:
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    if (IsStrategyUnSafeMode)
                     {
                         if (PreTradeValidateCanEnterTrade(true))
                         {
@@ -2401,7 +2402,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                     break;
                 case StrategyTradeWorkFlowState.GoLongValidationRejected:
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode || !IsOnStrategyTradeWorkFlowStateEntryRejectionError) return ProcessWorkFlow(StrategyTradeWorkFlowState.Waiting);
+                    if (IsStrategyUnSafeMode || !IsOnStrategyTradeWorkFlowStateEntryRejectionError) return ProcessWorkFlow(StrategyTradeWorkFlowState.Waiting);
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
                 case StrategyTradeWorkFlowState.GoLongSubmitOrderPending:
                     //must catch nulls here in case the submit order was not placed and returned null
@@ -2431,7 +2432,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     if (SubmitProfitTargetWillOccur()) return ProcessWorkFlow(StrategyTradeWorkFlowState.GoLongPlaceProfitTargets);
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.CycleComplete);
                 case StrategyTradeWorkFlowState.GoLongPlaceStops:
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    if (IsStrategyUnSafeMode)
                     {
                         TradeWorkFlow = StrategyTradeWorkFlowState.GoLongPlaceStopsPending;
                         SubmitStopLossInternal();
@@ -2453,7 +2454,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                     break;
                 case StrategyTradeWorkFlowState.GoLongPlaceStopsPending:
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    if (IsStrategyUnSafeMode)
                     {
                         TradeWorkFlow = StrategyTradeWorkFlowState.GoLongPlaceStopsConfirmed;
                         goto case StrategyTradeWorkFlowState.GoLongPlaceStopsConfirmed;
@@ -2486,7 +2487,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     if (SubmitProfitTargetWillOccur()) return ProcessWorkFlow(StrategyTradeWorkFlowState.GoLongPlaceProfitTargets);
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.CycleComplete);
                 case StrategyTradeWorkFlowState.GoLongPlaceProfitTargets:
-                    if (IsHistoricalTradeOrPlayBack || !IsSubmitTargetsAndConfirm)
+                    if (!IsSubmitTargetsAndConfirm)
                     {
                         TradeWorkFlow = StrategyTradeWorkFlowState.GoLongPlaceProfitTargetsPending;
                         SubmitProfitTargetInternal();
@@ -2510,7 +2511,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                     break;
                 case StrategyTradeWorkFlowState.GoLongPlaceProfitTargetsPending:
-                    if (IsHistoricalTradeOrPlayBack || !IsSubmitTargetsAndConfirm)
+                    if (!IsSubmitTargetsAndConfirm)
                     {
                         TradeWorkFlow = StrategyTradeWorkFlowState.GoLongPlaceProfitTargetsConfirmed;
                         goto case StrategyTradeWorkFlowState.GoLongPlaceProfitTargetsConfirmed;
@@ -2541,7 +2542,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     //trade per direction test
                     if (Position.MarketPosition == MarketPosition.Short) return ProcessWorkFlow(StrategyTradeWorkFlowState.GoShortValidationRejected);
 
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    if (IsStrategyUnSafeMode)
                     {
                         TradeWorkFlow = StrategyTradeWorkFlowState.GoShortCancelWorkingOrders;
                         goto case StrategyTradeWorkFlowState.GoShortCancelWorkingOrders;
@@ -2566,7 +2567,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.GoShortSubmitOrder);
 
                 case StrategyTradeWorkFlowState.GoShortCancelWorkingOrders:
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    if (IsStrategyUnSafeMode)
                     {
                         CancelAllOrders();
                         TradeWorkFlow = StrategyTradeWorkFlowState.GoShortCancelWorkingOrdersConfirmed;
@@ -2606,7 +2607,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 case StrategyTradeWorkFlowState.GoShortCancelWorkingOrdersConfirmed:
 
                     TradeWorkFlowOnMarketDataDisable();
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    if (IsStrategyUnSafeMode)
                     {
                         if (Position.Quantity != 0)
                         {
@@ -2626,7 +2627,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 case StrategyTradeWorkFlowState.GoShortClosePositions:
                     if (Position.Quantity != 0)
                     {
-                        if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                        if (IsStrategyUnSafeMode)
                         {
                             TradeWorkFlow = StrategyTradeWorkFlowState.GoShortClosedPositionsPending;
                             PositionCloseInternal();
@@ -2681,7 +2682,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     TradeWorkFlowOnMarketDataDisable();
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.GoShortSubmitOrder);
                 case StrategyTradeWorkFlowState.GoShortSubmitOrder:
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    if (IsStrategyUnSafeMode)
                     {
                         if (PreTradeValidateCanEnterTrade(false))
                         {
@@ -2721,7 +2722,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                     break;
                 case StrategyTradeWorkFlowState.GoShortValidationRejected:
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode || !IsOnStrategyTradeWorkFlowStateEntryRejectionError) return ProcessWorkFlow(StrategyTradeWorkFlowState.Waiting);
+                    if (IsStrategyUnSafeMode || !IsOnStrategyTradeWorkFlowStateEntryRejectionError) return ProcessWorkFlow(StrategyTradeWorkFlowState.Waiting);
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
                 case StrategyTradeWorkFlowState.GoShortSubmitOrderPending:
                     //must catch nulls here in case the submit order was not placed and returned null
@@ -2751,7 +2752,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     if (SubmitProfitTargetWillOccur()) return ProcessWorkFlow(StrategyTradeWorkFlowState.GoShortPlaceProfitTargets);
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.CycleComplete);
                 case StrategyTradeWorkFlowState.GoShortPlaceStops:
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    if (IsStrategyUnSafeMode)
                     {
                         TradeWorkFlow = StrategyTradeWorkFlowState.GoShortPlaceStopsPending;
                         SubmitStopLossInternal();
@@ -2774,7 +2775,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     break;
                 case StrategyTradeWorkFlowState.GoShortPlaceStopsPending:
 
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    if (IsStrategyUnSafeMode)
                     {
                         TradeWorkFlow = StrategyTradeWorkFlowState.GoShortPlaceStopsConfirmed;
                         goto case StrategyTradeWorkFlowState.GoShortPlaceStopsConfirmed;
@@ -2804,7 +2805,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     if (SubmitProfitTargetWillOccur()) return ProcessWorkFlow(StrategyTradeWorkFlowState.GoShortPlaceProfitTargets);
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.CycleComplete);
                 case StrategyTradeWorkFlowState.GoShortPlaceProfitTargets:
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    if (IsStrategyUnSafeMode)
                     {
                         TradeWorkFlow = StrategyTradeWorkFlowState.GoShortPlaceProfitTargetsPending;
                         SubmitProfitTargetInternal();
@@ -2829,7 +2830,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                     break;
                 case StrategyTradeWorkFlowState.GoShortPlaceProfitTargetsPending:
-                    if (IsHistoricalTradeOrPlayBack || !IsSubmitTargetsAndConfirm)
+                    if (!IsSubmitTargetsAndConfirm)
                     {
                         TradeWorkFlow = StrategyTradeWorkFlowState.GoShortPlaceProfitTargetsConfirmed;
                         goto case StrategyTradeWorkFlowState.GoShortPlaceProfitTargetsConfirmed;
@@ -2859,7 +2860,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 //Begin GoOCO
                 case StrategyTradeWorkFlowState.GoOCOLongShort:
                     //trade per direction test
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    if (IsStrategyUnSafeMode)
                     {
                         TradeWorkFlow = StrategyTradeWorkFlowState.GoOCOLongShortCancelWorkingOrders;
                         goto case StrategyTradeWorkFlowState.GoOCOLongShortCancelWorkingOrders;
@@ -2883,7 +2884,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.GoOCOLongShortSubmitOrder);
 
                 case StrategyTradeWorkFlowState.GoOCOLongShortCancelWorkingOrders:
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    if (IsStrategyUnSafeMode)
                     {
                         CancelAllOrders();
                         TradeWorkFlow = StrategyTradeWorkFlowState.GoOCOLongShortCancelWorkingOrdersConfirmed;
@@ -2927,7 +2928,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 case StrategyTradeWorkFlowState.GoOCOLongShortClosePositions:
                     if (Position.Quantity != 0)
                     {
-                        if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                        if (IsStrategyUnSafeMode)
                         {
                             TradeWorkFlow = StrategyTradeWorkFlowState.GoOCOLongShortClosedPositionsPending;
                             PositionCloseInternal();
@@ -2982,7 +2983,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     TradeWorkFlowOnMarketDataDisable();
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.GoOCOLongShortSubmitOrder);
                 case StrategyTradeWorkFlowState.GoOCOLongShortSubmitOrder:
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    if (IsStrategyUnSafeMode)
                     {
                         if (PreTradeValidateCanEnterTradeOCO())
                         {
@@ -3025,7 +3026,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                     break;
                 case StrategyTradeWorkFlowState.GoOCOLongShortValidationRejected:
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode) return ProcessWorkFlow(StrategyTradeWorkFlowState.Waiting);
+                    if (IsStrategyUnSafeMode) return ProcessWorkFlow(StrategyTradeWorkFlowState.Waiting);
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
                 case StrategyTradeWorkFlowState.GoOCOLongShortSubmitOrderPending:
                     //must catch nulls here in case the submit order was not placed and returned null
@@ -3056,13 +3057,13 @@ namespace NinjaTrader.NinjaScript.Strategies
                 case StrategyTradeWorkFlowState.ExitTrade:
                     //orders to cancel test
 
-                    if (IsHistoricalTradeOrPlayBack || IsOrdersAnyActiveExist()) return ProcessWorkFlow(StrategyTradeWorkFlowState.ExitTradeCancelWorkingOrders);
+                    if (IsOrdersAnyActiveExist()) return ProcessWorkFlow(StrategyTradeWorkFlowState.ExitTradeCancelWorkingOrders);
                     //position to close test
                     if (Position.Quantity != 0) return ProcessWorkFlow(StrategyTradeWorkFlowState.ExitTradeClosePositions);
                     //nothing to do
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.CycleComplete);
                 case StrategyTradeWorkFlowState.ExitTradeCancelWorkingOrders:
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    if (IsStrategyUnSafeMode)
                     {
 
                         CancelAllOrders();
@@ -3086,7 +3087,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                     break;
                 case StrategyTradeWorkFlowState.ExitTradeCancelWorkingOrderPending:
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    if (IsStrategyUnSafeMode)
                         return ProcessWorkFlow(StrategyTradeWorkFlowState.ExitTradeCancelWorkingOrderConfirmed);
 
                     if (IsOrdersAnyActiveExist())
@@ -3109,7 +3110,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 case StrategyTradeWorkFlowState.ExitTradeClosePositions:
                     if (Position.Quantity != 0)
                     {
-                        if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                        if (IsStrategyUnSafeMode)
                         {
                             TradeWorkFlow = StrategyTradeWorkFlowState.ExitTradeClosePositionsPending;
                             PositionCloseInternal();
@@ -3136,7 +3137,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     break;
                 case StrategyTradeWorkFlowState.ExitTradeClosePositionsPending:
                     //execution event or realtime event or timer moves event on
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode) break;
+                    if (IsStrategyUnSafeMode) break;
                     if (Position.Quantity != 0)
                     {
                         TradeWorkFlowOnMarketDataEnable();
@@ -3151,7 +3152,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                     break;
                 case StrategyTradeWorkFlowState.ExitTradeClosePositionsConfirmed:
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    if (IsStrategyUnSafeMode)
                         return ProcessWorkFlow(StrategyTradeWorkFlowState.CycleComplete);
 
                     TradeWorkFlowOnMarketDataDisable();
@@ -3181,7 +3182,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 case StrategyTradeWorkFlowState.ErrorTimeOut:
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
                 case StrategyTradeWorkFlowState.Error:
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    if (IsStrategyUnSafeMode)
                     {
                         CancelAllOrders();
                         //Assume all cancelled and move workflow onwards
@@ -3211,7 +3212,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                     break;
                 case StrategyTradeWorkFlowState.ErrorFlattenAll:
-                    if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+                    if (IsStrategyUnSafeMode)
                     {
                         PositionCloseInternal(false);
                         return ProcessWorkFlow(StrategyTradeWorkFlowState.ErrorFlattenAllConfirmed);
@@ -3287,14 +3288,14 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.CycleComplete);
                 case StrategyTradeWorkFlowState.ExitOnCloseOrderPending:
-                    if (IsHistoricalTradeOrPlayBack) break;
+                    if (IsHistorical) break;
 
                     TradeWorkFlow = StrategyTradeWorkFlowState.ExitOnCloseWaitingConfirmation;
                     TradeWorkFlowOnMarketDataEnable();
 
                     break;
                 case StrategyTradeWorkFlowState.ExitOnCloseWaitingConfirmation:
-                    if (IsHistoricalTradeOrPlayBack) break;
+                    if (IsHistorical) break;
 
                     if (IsOrdersAnyActiveExist() || Position.MarketPosition != MarketPosition.Flat)
                     {
@@ -3373,7 +3374,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             if (tracing)
                 Print("TradeWorkFlowErrorProcess() > forceImmediate " + forceImmediate.ToString());
 
-            if (IsHistoricalTradeOrPlayBack || forceImmediate)
+            if (forceImmediate)
                 ProcessWorkFlow(TradeWorkFlow);
 
             //deferred execution
@@ -3591,7 +3592,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             if (tracing)
                 Print("submitStopLossInternal(" + orderEntry.ToString() + ")");
 
-            if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+            if (IsStrategyUnSafeMode)
             {
                 SubmitStopLoss(this.orderEntry);
                 return;
@@ -3633,10 +3634,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             if (tracing)
                 Print("submitProfitTargetInternal(orderEntry " + orderEntry != null ? orderEntry.ToString() : "null" + ")");
 
-
-
-
-            if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
+            if (IsStrategyUnSafeMode)
             {
                 SubmitProfitTarget(this.orderEntry, this.oCOId);
                 return;
@@ -4006,13 +4004,17 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
         #endregion
         #region  Logging Tracing
-        public void Print(string msg)
+	public void Print2(string msg, NinjaTrader.NinjaScript.PrintTo printto = PrintTo.OutputTab2)
+	{
+		Print(msg, printto);
+	}
+        public void Print(string msg, NinjaTrader.NinjaScript.PrintTo printto = PrintTo.OutputTab1)
         {
             try
             {
-                string txt = DateTime.Now.ToString("yyyy.MM.dd HH:mm:ss:fff") + " Strategy " + this.Name + "/" + base.Id.ToString();
+                string txt = Now.ToString("yyyy.MM.dd HH:mm:ss:fff") + " Strategy " + this.Name + "/" + base.Id.ToString();
 
-                PrintTo = PrintTo.OutputTab1;
+                PrintTo = printto;
 
                 //account bars and other items not available here in this state
                 txt = string.Format("{0} {1} {2} {3}", txt, State.ToString(), PositionStateString, ATSAlgoSystemState.ToString());
@@ -4112,7 +4114,6 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         private DateTime tEQNextTimeValid = DateTime.MinValue;
         private DateTime tradeWorkFlowNextTimeValid = DateTime.MinValue;
-        private DateTime now = Core.Globals.Now;
 
 
         [Browsable(false)]
@@ -4120,12 +4121,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         {
             get
             {
-                now = (Cbi.Connection.PlaybackConnection != null ? Cbi.Connection.PlaybackConnection.Now : Core.Globals.Now);
-
-                if (now.Millisecond > 0)
-                    now = Core.Globals.MinDate.AddSeconds((long)Math.Floor(now.Subtract(Core.Globals.MinDate).TotalSeconds));
-
-                return now;
+                return (Cbi.Connection.PlaybackConnection != null ? Cbi.Connection.PlaybackConnection.Now : Core.Globals.Now);
             }
         }
         #endregion
@@ -4713,7 +4709,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 if (tradeWorkFlow != value)
                 {
-                    TradeWorkFlowLastChanged = DateTime.Now;
+                    TradeWorkFlowLastChanged = Now;
                     tradeWorkFlowRetryCount = 0;
                     TradeWorkFlowLastChangedBar = CurrentBars[0];
 
@@ -4787,7 +4783,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         [Browsable(false)]
         [XmlIgnore()]
-        public bool IsHistoricalTradeOrPlayBack { get { return State == State.Historical || ATSAlgoSystemState == AlgoSystemState.HisTradeRT || IsPlayBack; } }
+        public bool IsHistoricalTradeOrPlayBack { get { return IsHistorical || IsPlayBack; } }
 
 
         [Browsable(false)]
