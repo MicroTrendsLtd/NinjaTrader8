@@ -47,7 +47,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 //See Help Guide for additional information.
                 IsSuspendedWhileInactive = false;
                 this.IsChartOnly = false;
-                AddPlot(new Stroke(Brushes.White, 2), PlotStyle.Line, "PL");
+                AddPlot(new Stroke(Brushes.White, 2), PlotStyle.Line, "PNL");
                 AddLine(Brushes.White, 0, "0");
                 DrawOnPricePanel = false;
             }
@@ -78,7 +78,6 @@ namespace NinjaTrader.NinjaScript.Indicators
             try
             {
                 base.OnCalculateMinMax();
-
             }
             catch (Exception ex)
             {
@@ -103,7 +102,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         {
             get
             {
-                return string.Empty;
+                return "ATS Info Bar";
             }
         }
         public override string ToString()

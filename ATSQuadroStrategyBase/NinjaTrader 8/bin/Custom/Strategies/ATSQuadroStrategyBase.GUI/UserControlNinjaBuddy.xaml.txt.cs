@@ -223,7 +223,7 @@ namespace ATSQuadroStrategyBase.GUI
 
         }
 
-        private void textPositionState_TextChanged(object sender, TextChangedEventArgs e)
+        public virtual void textPositionState_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (textPositionState.Text == "1")
             {
@@ -246,7 +246,7 @@ namespace ATSQuadroStrategyBase.GUI
 
         }
 
-        private void textUnrealizedPL_TextChanged(object sender, TextChangedEventArgs e)
+        public virtual void textUnrealizedPL_TextChanged(object sender, TextChangedEventArgs e)
         {
 
             if (textPositionState.Text == "0")

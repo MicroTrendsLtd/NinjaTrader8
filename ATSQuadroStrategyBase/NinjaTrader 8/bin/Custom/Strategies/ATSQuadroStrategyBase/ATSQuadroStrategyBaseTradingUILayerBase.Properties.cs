@@ -32,12 +32,12 @@ namespace NinjaTrader.NinjaScript.Strategies
         private string wPFControlsButtonNinjaBuddyAutomationID = string.Empty, wPFControlsButtonEasyConfigAutomationID = string.Empty, wPFControlsButtonNewsAutomationID = string.Empty;
 
         private System.Windows.Controls.Grid wPFControlsChartGrid;
-        private NinjaTrader.Gui.Chart.ChartTab chartTab;
-        private Gui.Chart.ChartTrader wPFControlsChartTrader;
+        public  NinjaTrader.Gui.Chart.ChartTab chartTab;
+        public  Gui.Chart.ChartTrader wPFControlsChartTrader;
         private int chartTraderStartColumn;
-        private NinjaTrader.Gui.Chart.Chart wPFControlsChartWindow;
+        public  NinjaTrader.Gui.Chart.Chart wPFControlsChartWindow;
         private System.Windows.Controls.ToolBar wPFControlsChartWindowToolBar;
-        private bool wPFControlsIsPanelActive = false;
+        public bool wPFControlsIsPanelActive = false;
         private System.Windows.Controls.TabItem wPFControlsTabItem;
         private UserControlNinjaBuddy wPFControlsUserControlNinjaBuddy1;
 
@@ -47,8 +47,8 @@ namespace NinjaTrader.NinjaScript.Strategies
         #endregion
 
         #region Visual Indicators
-        private ATSIndicatorQSBStrategyInfoBar aTSIndicatorQSBStrategyInfoBar;
-        private ATSIndicatorQSBStrategyVisualiser aTSIndicatorQSBStrategyVisualiser;
+        public ATSIndicatorQSBStrategyInfoBar aTSIndicatorQSBStrategyInfoBar;
+        public ATSIndicatorQSBStrategyVisualiser aTSIndicatorQSBStrategyVisualiser;
         #endregion
 
         #region NinjaBuddyControls
