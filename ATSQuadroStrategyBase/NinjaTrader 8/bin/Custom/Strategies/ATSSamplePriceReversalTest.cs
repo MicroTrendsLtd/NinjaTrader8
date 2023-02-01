@@ -129,13 +129,13 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
 
 
-        public override Order SubmitShort(string signal)
+        public override Order SubmitShort(string signal, bool isUser)
         {
             orderEntry = SubmitOrderUnmanaged(0, OrderAction.SellShort, OrderType.Market, 4, 0, 0, String.Empty, signal);
             return orderEntry;
         }
 
-        public override Order SubmitLong(string signal)
+        public override Order SubmitLong(string signal, bool isUser)
         {
             orderEntry = SubmitOrderUnmanaged(0, OrderAction.Buy, OrderType.Market, 4, 0, 0, String.Empty, signal);
             return orderEntry;

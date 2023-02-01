@@ -2371,7 +2371,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         if (PreTradeValidateCanEnterTrade(true))
                         {
                             orderEntryPrior = orderEntry;
-                            orderEntry = SubmitLongTrade();
+                            orderEntry = SubmitLongTrade(IsUserActionOverride);
                             break;
                         }
                         else
@@ -2387,7 +2387,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         if (PreTradeValidateCanEnterTrade(true, isPositionCloseModeLimitExecuted, isUserActionOverride))
                         {
                             orderEntryPrior = orderEntry;
-                            orderEntry = SubmitLongTrade();
+                            orderEntry = SubmitLongTrade(isUserActionOverride);
                         }
                         else
                         {
@@ -2705,7 +2705,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         if (PreTradeValidateCanEnterTrade(false, isPositionCloseModeLimitExecuted, isUserActionOverride))
                         {
                             orderEntryPrior = orderEntry;
-                            orderEntry = SubmitShortTrade();
+                            orderEntry = SubmitShortTrade(isUserActionOverride);
                         }
                         else
                         {
@@ -2990,7 +2990,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                             orderEntryPrior = orderEntry;
                             //orderEntry = SubmitShortTrade();
                             orderEntry = null;
-                            SubmitOCOBreakoutInternal();
+                            SubmitOCOBreakoutInternal(IsUserActionOverride);
                         }
                         else
                         {
@@ -3009,7 +3009,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         {
                             orderEntryPrior = orderEntry;
                             orderEntry = null;
-                            SubmitOCOBreakoutInternal();
+                            SubmitOCOBreakoutInternal(isUserActionOverride);
                         }
                         else
                         {
@@ -3544,9 +3544,9 @@ namespace NinjaTrader.NinjaScript.Strategies
         #endregion
         #region Submit Orders
 
-        private void SubmitOCOBreakoutInternal()
+        private void SubmitOCOBreakoutInternal(bool isUser = false)
         {
-            SubmitOCOBreakout(false);
+            SubmitOCOBreakout(isUser);
         }
 
         public void SubmitOCOBreakout(bool isUser = false)
@@ -3557,15 +3557,15 @@ namespace NinjaTrader.NinjaScript.Strategies
             orderEntry = null;
             string signalLongName = orderEntryOCOLongName + "S#" + entryCount.ToString() + (IsHistorical ? ".H" : isUser ? ".U" : string.Empty);
             string signalShortName = orderEntryOCOShortName + "S#" + entryCount.ToString() + (IsHistorical ? ".H" : isUser ? ".U" : string.Empty);
-            SubmitOCOBreakout(oCOId, signalLongName, signalShortName);
+            SubmitOCOBreakout(oCOId, signalLongName, signalShortName, isUser);
         }
 
-        public virtual void SubmitOCOBreakout(string oCOId)
+        public virtual void SubmitOCOBreakout(string oCOId, bool isUser = false)
         {
-            SubmitOCOBreakout(oCOId, signalLongName: "OCO-L", signalShortName: "OCO-S");
+            SubmitOCOBreakout(oCOId, signalLongName: "OCO-L", signalShortName: "OCO-S", isUser: isUser);
         }
 
-        public virtual void SubmitOCOBreakout(string oCOId, string signalLongName, string signalShortName)
+        public virtual void SubmitOCOBreakout(string oCOId, string signalLongName, string signalShortName, bool isUser = false)
         {
 
             double rAVG = TechRAVG();
@@ -3866,7 +3866,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             orderEntryName = signal;
 
-            orderEntry = SubmitShort(signal);
+            orderEntry = SubmitShort(signal, isUser);
 
             if (tracing)
                 Print("SubmitShortTrade() >> " + orderEntry.ToString());
@@ -3898,7 +3898,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             orderEntryPrior = orderEntry;
             orderEntry = null;
-            orderEntry = SubmitLong(signal);
+            orderEntry = SubmitLong(signal, isUser);
 
             if (tracing)
                 Print("SubmitLongTrade(orderEntry=" + (orderEntry == null ? "null" : orderEntry.Name));
@@ -3958,7 +3958,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
         }
 
-        public virtual Order SubmitShort(string signal)
+        public virtual Order SubmitShort(string signal, bool isUser)
         {
             if (tracing)
                 Print(Name + "Order SubmitShort(string signal) - was Called ");
@@ -3967,7 +3967,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             return orderEntry;
         }
 
-        public virtual Order SubmitLong(string signal)
+        public virtual Order SubmitLong(string signal, bool isUser)
         {
             if (tracing)
                 Print(Name + "SubmitLong(string signal) - was Called ");
