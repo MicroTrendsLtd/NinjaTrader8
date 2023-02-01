@@ -1358,8 +1358,8 @@ namespace NinjaTrader.NinjaScript.Strategies
         {
             if (marketDataUpdate.MarketDataType == MarketDataType.Bid || marketDataUpdate.MarketDataType == MarketDataType.Ask)
             {
-                if (DateTime.Now < onMarketDataBidTimeNextAllowed) return;
-                onMarketDataBidTimeNextAllowed = DateTime.Now.AddMilliseconds(250);
+                if (Now < onMarketDataBidTimeNextAllowed) return;
+                onMarketDataBidTimeNextAllowed = Now.AddMilliseconds(250);
                 AskPrice = marketDataUpdate.Ask;
                 BidPrice = marketDataUpdate.Bid;
                 return;
@@ -1372,13 +1372,13 @@ namespace NinjaTrader.NinjaScript.Strategies
             LastPrice = marketDataUpdate.Price;
 
             //process min of 1 second
-            if (DateTime.Now < onMarketDataTimeNextAllowed) return;
-            onMarketDataTimeNextAllowed = DateTime.Now.AddSeconds(1);
+            if (Now < onMarketDataTimeNextAllowed) return;
+            onMarketDataTimeNextAllowed = Now.AddSeconds(1);
 
             //calcualte position min of every 2 secs
-            if (DateTime.Now > onMarketDataPositionInfoNextAllowed)
+            if (Now > onMarketDataPositionInfoNextAllowed)
             {
-                onMarketDataPositionInfoNextAllowed = DateTime.Now.AddSeconds(2);
+                onMarketDataPositionInfoNextAllowed = Now.AddSeconds(2);
                 if (Position.MarketPosition == MarketPosition.Flat)
                 {
                     PositionInfo = string.Format("{0}", Position.MarketPosition.ToString());
@@ -1412,11 +1412,12 @@ namespace NinjaTrader.NinjaScript.Strategies
             try
             {
                 //if !IsTradeWorkFlowReady() and we get an TradeWorkFlowTimeOut in a non Error case- set WF to Error and 
-                if (!IsTradeWorkFlowReady() && !IsTradeWorkFlowInErrorState() && TradeWorkFlowLastChanged < DateTime.Now.AddSeconds(-1 * TradeWorkFlowTimeOut))
+                if (!IsTradeWorkFlowReady() && !IsTradeWorkFlowInErrorState() && TradeWorkFlowLastChanged < Now.AddSeconds(-1 * TradeWorkFlowTimeOut))
                 {
-                    if (tracing)
+                    if (tracing) { 
                         Print("OnMarketData >> TWF >> ErrorTimeOut");
-
+                        Print(String.Format("{0} < {1}", TradeWorkFlowLastChanged, Now.AddSeconds(-1 * TradeWorkFlowTimeOut)));
+                    }
                     TradeWorkFlow = StrategyTradeWorkFlowState.ErrorTimeOut;
                     //ProcessWorkFlow(StrategyTradeWorkFlowState.ErrorTimeOut);
 
@@ -1810,7 +1811,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                         //the caveats here as we cancel ordersActiveConcDict is being removed of the cancelled order
                         //on that basis if this is a no go- use a copy to iterate  ordersActiveConcDict.Values.ToArray() etc
-                        foreach (Order orderToCancel in ordersActiveConcDict.Values)
+                        foreach (Order orderToCancel in ordersActiveConcDict.Values.ToArray())
                         {
                             if (!IsOrderActiveCanCancel(orderToCancel) || (IsOrderCancelStopsOnly && OrdersProfitTarget.Contains(orderToCancel))) continue;
 #if DEBUG
@@ -2019,7 +2020,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         public bool IsOrderTerminated(Order o)
         {
-            return o != null && Order.IsTerminalState(o.OrderState) || ((State == State.Realtime ? o.OrderState == OrderState.Submitted && o.Time.AddSeconds(10) < DateTime.Now : false));
+            return o != null && Order.IsTerminalState(o.OrderState) || ((State == State.Realtime ? o.OrderState == OrderState.Submitted && o.Time.AddSeconds(10) < Now : false));
         }
 
         #endregion
@@ -2028,7 +2029,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         {
             if (tracing) Print("SubmitSignalAction " + AlgoSignalActions.ToString() + " WF=" + this.TradeWorkFlow.ToString());
 
-            TEQ.Enqueue(new AlgoSignalActionMsq(AlgoSignalActions, IsHistoricalTradeOrPlayBack ? Time[0] : DateTime.Now, signalLabel));
+            TEQ.Enqueue(new AlgoSignalActionMsq(AlgoSignalActions, IsHistoricalTradeOrPlayBack ? Time[0] : Now, signalLabel));
             #region Signal Execution
             if (IsHistoricalTradeOrPlayBack || !IsRealtimeTradingUseQueue)
             {
@@ -2110,7 +2111,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         Print("ProcessTradeEventQueue> Peek> AlgoSignalActions " + a.ToString());
 
                     //expire signal if needed
-                    if (DateTime.Now > a.ActionDateTime.AddSeconds(TradeSignalExpiryInterval))
+                    if (Now > a.ActionDateTime.AddSeconds(TradeSignalExpiryInterval))
                     {
                         if (tracing)
                             Print("ProcessTradeEventQueue> Trade Signal TimeOut > AlgoSignalActions " + a.ToString());
@@ -4006,13 +4007,17 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
         #endregion
         #region  Logging Tracing
-        public void Print(string msg)
+	public void Print2(string msg, NinjaTrader.NinjaScript.PrintTo printto = PrintTo.OutputTab2)
+	{
+		Print(msg, printto);
+	}
+        public void Print(string msg, NinjaTrader.NinjaScript.PrintTo printto = PrintTo.OutputTab1)
         {
             try
             {
-                string txt = DateTime.Now.ToString("yyyy.MM.dd HH:mm:ss:fff") + " Strategy " + this.Name + "/" + base.Id.ToString();
+                string txt = Now.ToString("yyyy.MM.dd HH:mm:ss:fff") + " Strategy " + this.Name + "/" + base.Id.ToString();
 
-                PrintTo = PrintTo.OutputTab1;
+                PrintTo = printto;
 
                 //account bars and other items not available here in this state
                 txt = string.Format("{0} {1} {2} {3}", txt, State.ToString(), PositionStateString, ATSAlgoSystemState.ToString());
@@ -4112,7 +4117,6 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         private DateTime tEQNextTimeValid = DateTime.MinValue;
         private DateTime tradeWorkFlowNextTimeValid = DateTime.MinValue;
-        private DateTime now = Core.Globals.Now;
 
 
         [Browsable(false)]
@@ -4120,12 +4124,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         {
             get
             {
-                now = (Cbi.Connection.PlaybackConnection != null ? Cbi.Connection.PlaybackConnection.Now : Core.Globals.Now);
-
-                if (now.Millisecond > 0)
-                    now = Core.Globals.MinDate.AddSeconds((long)Math.Floor(now.Subtract(Core.Globals.MinDate).TotalSeconds));
-
-                return now;
+                return (Cbi.Connection.PlaybackConnection != null ? Cbi.Connection.PlaybackConnection.Now : Core.Globals.Now);
             }
         }
         #endregion
@@ -4713,7 +4712,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 if (tradeWorkFlow != value)
                 {
-                    TradeWorkFlowLastChanged = DateTime.Now;
+                    TradeWorkFlowLastChanged = Now;
                     tradeWorkFlowRetryCount = 0;
                     TradeWorkFlowLastChangedBar = CurrentBars[0];
 
