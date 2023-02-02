@@ -87,7 +87,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         #region NinjaBuddy, Config & Toolbar
         #region WPFControls
 
-        protected void WPFControlsInit()
+        public virtual void WPFControlsInit()
         {
             if (IsTracingMode)
                 Print("WPFControlsInit");
@@ -122,7 +122,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         }
 
-        protected void WPFControlsCreate()
+        public virtual void WPFControlsCreate()
         {
             if (IsTracingMode)
                 Print("WPFControlsCreate");
@@ -142,7 +142,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         }
 
-        private void WPFControlsInsert()
+        public virtual void WPFControlsInsert()
         {
             try
             {
@@ -159,7 +159,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             wPFControlsIsPanelActive = true;
         }
 
-        private void WPFControlsToolBarCreate()
+        public virtual void WPFControlsToolBarCreate()
         {
             try
             {
@@ -206,7 +206,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         }
 
-        private void WPFControlsToolBarInsert()
+        public virtual void WPFControlsToolBarInsert()
         {
 
             try
@@ -229,7 +229,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         }
 
-        private void WPFControlsToolBarRemove()
+        public virtual void WPFControlsToolBarRemove()
         {
             #region ToolBar
             try
@@ -257,7 +257,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             #endregion
         }
 
-        private void WPFControlsRemove()
+        public virtual void WPFControlsRemove()
         {
             if (!wPFControlsIsPanelActive)
                 return;
@@ -276,7 +276,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             wPFControlsIsPanelActive = false;
         }
 
-        private void WPFControlsDispose()
+        public virtual void WPFControlsDispose()
         {
             try
             {
@@ -295,7 +295,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         }
 
-        private bool WPFControlsChartTabSelected()
+        public virtual bool WPFControlsChartTabSelected()
         {
             bool chartTabSelected = false;
             try
@@ -314,7 +314,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             return chartTabSelected;
         }
 
-        private void WPFControlsChartTabChangedHandler(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        public virtual void WPFControlsChartTabChangedHandler(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
 
             try
@@ -342,19 +342,19 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
         }
 
-        private void WPFControlsButtonNews_Click(object sender, RoutedEventArgs e)
+        public virtual void WPFControlsButtonNews_Click(object sender, RoutedEventArgs e)
         {
             System.Diagnostics.Process.Start("https://alphawebtrader.com/econews");
         }
 
-        private void WPFControlsButtonEasyConfig_Click(object sender, RoutedEventArgs e)
+        public virtual void WPFControlsButtonEasyConfig_Click(object sender, RoutedEventArgs e)
         {
             //create and show the window ATSQuadroBaseStrategyPropertyGridPopUp with the strategy properties displayed inthe PropertyGrid 
             Globals.RandomDispatcher.BeginInvoke(new Action(() => new ATSQuadroBaseStrategyPropertyGridPopUp().Show(this)));
 
         }
 
-        private void WPFControlsButtonNinjaBuddy_Click(object sender, RoutedEventArgs e)
+        public virtual void WPFControlsButtonNinjaBuddy_Click(object sender, RoutedEventArgs e)
         {
             if (wPFControlsUserControlNinjaBuddy1 == null)
             {
@@ -366,7 +366,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         #endregion
         #region NinjaBuddy
-        private void WPFControlsNinjaBuddyCreate()
+        public virtual void WPFControlsNinjaBuddyCreate()
         {
             #region NinjaBuddy
 
@@ -417,7 +417,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             #endregion
         }
-        private void WPFControlsNinjaBuddyInsert()
+        public virtual void WPFControlsNinjaBuddyInsert()
         {
 
             try
@@ -460,7 +460,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 
         }
-        private void WPFControlsNinjaBuddyVisibilty(bool visible)
+        public virtual void WPFControlsNinjaBuddyVisibilty(bool visible)
         {
             try
             {
@@ -492,7 +492,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
 
         }
-        private void WPFControlsNinjaBuddyDispose()
+        public virtual void WPFControlsNinjaBuddyDispose()
         {
             try
             {
@@ -537,7 +537,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 
         }
-        private void WPFControlsNinjaBuddyRemove()
+        public virtual void WPFControlsNinjaBuddyRemove()
         {
             try
             {
@@ -556,7 +556,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Print("WPFControlsRemove > NinmjaBuddy > Error: " + ex.ToString());
             }
         }
-        protected void WPFControlsChartTopMenuItemNinjaBuddy_Click(object sender, RoutedEventArgs e)
+        public virtual void WPFControlsChartTopMenuItemNinjaBuddy_Click(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -574,7 +574,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Print("ChartTopMenuItemNinjaBuddy_Click > Error >" + ex.ToString());
             }
         }
-        private void WPFControlsUserControlNinjaBuddy1_OnTrailTriggerClick(object sender, RoutedEventArgs e)
+        public virtual void WPFControlsUserControlNinjaBuddy1_OnTrailTriggerClick(object sender, RoutedEventArgs e)
         {
             if (ATSAlgoSystemState == AlgoSystemState.HisTradeRT) return;
             if (Position.MarketPosition == MarketPosition.Flat) return;
@@ -583,7 +583,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             //if (!this.trail2Active) { this.trail2Active = true; return; }
             //if (!this.trail3Active) { this.trail3Active = true; return; }
         }
-        private void WPFControlsUserControlNinjaBuddy1_OnTrailHiLoClick(object sender, RoutedEventArgs e)
+        public virtual void WPFControlsUserControlNinjaBuddy1_OnTrailHiLoClick(object sender, RoutedEventArgs e)
         {
             if (ATSAlgoSystemState != AlgoSystemState.Realtime) return;
             if (Position.MarketPosition == MarketPosition.Flat) return;
@@ -635,7 +635,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 
         }
-        private void WPFControlsUserControlNinjaBuddy1_OnTrail50Click(object sender, RoutedEventArgs e)
+        public virtual void WPFControlsUserControlNinjaBuddy1_OnTrail50Click(object sender, RoutedEventArgs e)
         {
             if (ATSAlgoSystemState != AlgoSystemState.Realtime) return;
             if (Position.MarketPosition == MarketPosition.Flat) return;
@@ -677,7 +677,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     ChangeOrder(orderStop4, orderStop4.Quantity, 0, (GetCurrentAsk(0) + orderStop4.StopPrice) / 2);
             }
         }
-        private void WPFControlsUserControlNinjaBuddy1_OnTrail4Click(object sender, RoutedEventArgs e)
+        public virtual void WPFControlsUserControlNinjaBuddy1_OnTrail4Click(object sender, RoutedEventArgs e)
         {
             if (ATSAlgoSystemState != AlgoSystemState.Realtime) return;
             if (Position.MarketPosition == MarketPosition.Flat) return;
@@ -691,7 +691,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     ChangeOrder(orderStop4, orderStop4.Quantity, 0, GetCurrentAsk(0));
             }
         }
-        private void WPFControlsUserControlNinjaBuddy1_OnTrail3Click(object sender, RoutedEventArgs e)
+        public virtual void WPFControlsUserControlNinjaBuddy1_OnTrail3Click(object sender, RoutedEventArgs e)
         {
             if (ATSAlgoSystemState != AlgoSystemState.Realtime) return;
             if (Position.MarketPosition == MarketPosition.Flat) return;
@@ -705,7 +705,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     ChangeOrder(orderStop3, orderStop3.Quantity, 0, GetCurrentAsk(0));
             }
         }
-        private void WPFControlsUserControlNinjaBuddy1_OnTrail2Click(object sender, RoutedEventArgs e)
+        public virtual void WPFControlsUserControlNinjaBuddy1_OnTrail2Click(object sender, RoutedEventArgs e)
         {
             if (ATSAlgoSystemState != AlgoSystemState.Realtime) return;
             if (Position.MarketPosition == MarketPosition.Flat) return;
@@ -720,7 +720,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     ChangeOrder(orderStop2, orderStop2.Quantity, 0, GetCurrentAsk(0));
             }
         }
-        private void WPFControlsUserControlNinjaBuddy1_OnTrail1Click(object sender, RoutedEventArgs e)
+        public virtual void WPFControlsUserControlNinjaBuddy1_OnTrail1Click(object sender, RoutedEventArgs e)
         {
             if (ATSAlgoSystemState != AlgoSystemState.Realtime) return;
             if (Position.MarketPosition == MarketPosition.Flat) return;
@@ -735,53 +735,49 @@ namespace NinjaTrader.NinjaScript.Strategies
                     ChangeOrder(orderStop1, orderStop1.Quantity, 0, GetCurrentAsk(0));
             }
         }
-        private void WPFControlsUserControlNinjaBuddy1_OnBuyClick(object sender, RoutedEventArgs e)
+        public virtual void WPFControlsUserControlNinjaBuddy1_OnBuyClick(object sender, RoutedEventArgs e)
         {
             if (ATSAlgoSystemState != AlgoSystemState.Realtime) return;
             if (Position.MarketPosition == MarketPosition.Long) return;
 
             if (base.IsTradeWorkFlowCanGoLong())
             {
-                IsUserActionOverride = true;
-                TriggerCustomEvent(base.TradeWorkFlowNewOrderCustom, StrategyTradeWorkFlowState.GoLong);
+                TriggerCustomEvent(base.TradeWorkFlowNewOrderCustom, AlgoSystemUserActions.Buy);
             }
 
         }
-        private void WPFControlsUserControlNinjaBuddy1_OnSellClick(object sender, RoutedEventArgs e)
+        public virtual void WPFControlsUserControlNinjaBuddy1_OnSellClick(object sender, RoutedEventArgs e)
         {
             if (ATSAlgoSystemState != AlgoSystemState.Realtime) return;
             if (Position.MarketPosition == MarketPosition.Short) return;
 
             if (base.IsTradeWorkFlowCanGoShort())
             {
-                IsUserActionOverride = true;
-                TriggerCustomEvent(base.TradeWorkFlowNewOrderCustom, StrategyTradeWorkFlowState.GoShort);
+                TriggerCustomEvent(base.TradeWorkFlowNewOrderCustom, AlgoSystemUserActions.Sell);
             }
 
         }
-        private void WPFControlsUserControlNinjaBuddy1_OnOCOBreakoutClick(object sender, RoutedEventArgs e)
+        public virtual void WPFControlsUserControlNinjaBuddy1_OnOCOBreakoutClick(object sender, RoutedEventArgs e)
         {
             if (ATSAlgoSystemState != AlgoSystemState.Realtime) return;
-            //TriggerCustomEvent(base.Flatten, null);
 
             if (base.IsTradeWorkFlowCanEntryOCO())
             {
-                IsUserActionOverride = true;
-                TriggerCustomEvent(base.TradeWorkFlowNewOrderCustom, StrategyTradeWorkFlowState.GoOCOLongShort);
+                TriggerCustomEvent(base.TradeWorkFlowNewOrderCustom, AlgoSystemUserActions.EntryOCO);
             }
         }
-        private void WPFControlsUserControlNinjaBuddy1_OnCloseClick(object sender, RoutedEventArgs e)
+        public virtual void WPFControlsUserControlNinjaBuddy1_OnCloseClick(object sender, RoutedEventArgs e)
         {
             if (ATSAlgoSystemState != AlgoSystemState.Realtime) return;
             TriggerCustomEvent(base.FlattenAndReset, null);
         }
-        private void WPFControlsUserControlNinjaBuddy1_OnBreakEvenClick(object sender, RoutedEventArgs e)
+        public virtual void WPFControlsUserControlNinjaBuddy1_OnBreakEvenClick(object sender, RoutedEventArgs e)
         {
             if (ATSAlgoSystemState != AlgoSystemState.Realtime) return;
 
             base.Position.BreakEven(OrdersStopLoss);
         }
-        private void WPFControlsChartPanel_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        public virtual void WPFControlsChartPanel_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
 
             if (!wPFControlsIsPanelActive || base.ATSAlgoSystemState != AlgoSystemState.Realtime) return;
@@ -812,17 +808,17 @@ namespace NinjaTrader.NinjaScript.Strategies
             ForceRefresh();
             e.Handled = true;
         }
-        private void WPFControlsUserControlNinjaBuddy1_OnBoxUpperClick(object sender, RoutedEventArgs e)
+        public virtual void WPFControlsUserControlNinjaBuddy1_OnBoxUpperClick(object sender, RoutedEventArgs e)
         {
             if (ATSAlgoSystemState != AlgoSystemState.Realtime) return;
             //throw new NotImplementedException("Sorry Box Breakout Not Implemented Yet. Coming Soon in an update.");
         }
-        private void WPFControlsUserControlNinjaBuddy1_OnBoxLowerClick(object sender, RoutedEventArgs e)
+        public virtual void WPFControlsUserControlNinjaBuddy1_OnBoxLowerClick(object sender, RoutedEventArgs e)
         {
             if (ATSAlgoSystemState != AlgoSystemState.Realtime) return;
             //throw new NotImplementedException("Sorry Box Breakout Not Implemented Yet. Coming Soon in an update.");
         }
-        private void WPFControlsUserControlNinjaBuddy1_OnBoxClearClick(object sender, RoutedEventArgs e)
+        public virtual void WPFControlsUserControlNinjaBuddy1_OnBoxClearClick(object sender, RoutedEventArgs e)
         {
             PriceZoneFilterUpperIsChecked = false;
             PriceZoneFilterLowerIsChecked = false;
@@ -833,15 +829,15 @@ namespace NinjaTrader.NinjaScript.Strategies
             RemoveDrawObject("PZL");
             ForceRefresh();
         }
-        private void WPFControlsUserControlNinjaBuddy1_OnAutoShortClick(object sender, RoutedEventArgs e)
+        public virtual void WPFControlsUserControlNinjaBuddy1_OnAutoShortClick(object sender, RoutedEventArgs e)
         {
 
         }
-        private void WPFControlsUserControlNinjaBuddy1_OnAutoLongClick(object sender, RoutedEventArgs e)
+        public virtual void WPFControlsUserControlNinjaBuddy1_OnAutoLongClick(object sender, RoutedEventArgs e)
         {
 
         }
-        private void WPFControlsUserControlNinjaBuddy1_OnAutoClick(object sender, RoutedEventArgs e)
+        public virtual void WPFControlsUserControlNinjaBuddy1_OnAutoClick(object sender, RoutedEventArgs e)
         {
 
         }

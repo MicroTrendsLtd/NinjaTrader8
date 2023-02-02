@@ -54,6 +54,24 @@ namespace NinjaTrader.NinjaScript.Strategies
 {
     #region enums
 
+    public enum AlgoSystemUserActions
+    {
+        None = 0,
+        EntryOCO = 1,
+        Buy = 10,
+        BuyMarket = 11,
+        BuyLimitAsk = 12,
+        BuyLimitBid = 13,
+        BuyStop = 14,
+        Sell = -1,
+        SellMarket = -2,
+        SellLimitAsk = -3,
+        SellLimitBid = -4,
+        SellStop = -5,
+        
+    }
+
+
     //[TypeConverter(typeof(CoreEnumConverter))]
     public enum AlgoSystemState
     {
@@ -434,7 +452,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private bool orderCancelStopsOnly = true;
         private bool orderCancelInspectEachOrDoBatchCancel = true;
         private bool raiseErrorOnAllOrderRejects = false;
-        
+
         //Trade Man        
         private readonly object lockObjectTradeManInternal = new object();
         private bool isInTradeManagementProcessInternal;
@@ -796,7 +814,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 // if no pending actions such as new orders etc then do TradeManagement
                 if (AlgoSignalAction == AlgoSignalAction.None)
                 {
-                    if(Position.MarketPosition!=MarketPosition.Flat  && isTradeManagementEnabled)
+                    if (Position.MarketPosition != MarketPosition.Flat && isTradeManagementEnabled)
                         TradeManagementExecInternal(LastPrice);
 
                     return;
@@ -977,7 +995,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                 }
 
-                if (IsPlayBack  && !IsPlayBackHandleOnOrderUpdate) return;
+                if (IsPlayBack && !IsPlayBackHandleOnOrderUpdate) return;
 
 
                 #region order tracking for entry, stops and targets
@@ -1414,7 +1432,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                 //if !IsTradeWorkFlowReady() and we get an TradeWorkFlowTimeOut in a non Error case- set WF to Error and 
                 if (!IsTradeWorkFlowReady() && !IsTradeWorkFlowInErrorState() && TradeWorkFlowLastChanged < Now.AddSeconds(-1 * TradeWorkFlowTimeOut))
                 {
-                    if (tracing) { 
+                    if (tracing)
+                    {
                         Print("OnMarketData >> TWF >> ErrorTimeOut");
                         Print(String.Format("{0} < {1}", TradeWorkFlowLastChanged, Now.AddSeconds(-1 * TradeWorkFlowTimeOut)));
                     }
@@ -2302,7 +2321,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                             TradeWorkFlow = StrategyTradeWorkFlowState.GoLongSubmitOrder;
                             goto case StrategyTradeWorkFlowState.GoLongSubmitOrder;
                         }
-                        break;
                     }
                     if (Position.Quantity != 0) return ProcessWorkFlow(StrategyTradeWorkFlowState.GoLongClosePositions);
                     else return ProcessWorkFlow(StrategyTradeWorkFlowState.GoLongSubmitOrder);
@@ -2384,10 +2402,13 @@ namespace NinjaTrader.NinjaScript.Strategies
                     {
                         bool isUserActionOverride = IsUserActionOverride;
                         IsUserActionOverride = false; //must reset
+                        AlgoSystemUserActions algoSystemUserActions = AlgoSystemUserActions;
+                        AlgoSystemUserActions = AlgoSystemUserActions.None;
+
                         if (PreTradeValidateCanEnterTrade(true, isPositionCloseModeLimitExecuted, isUserActionOverride))
                         {
                             orderEntryPrior = orderEntry;
-                            orderEntry = SubmitLongTrade();
+                            orderEntry = SubmitLongTrade(algoSystemUserActions);
                         }
                         else
                         {
@@ -2702,10 +2723,13 @@ namespace NinjaTrader.NinjaScript.Strategies
                     {
                         bool isUserActionOverride = IsUserActionOverride;
                         IsUserActionOverride = false; //must reset
+                        AlgoSystemUserActions algoSystemUserActions = AlgoSystemUserActions;
+                        AlgoSystemUserActions = AlgoSystemUserActions.None;
+
                         if (PreTradeValidateCanEnterTrade(false, isPositionCloseModeLimitExecuted, isUserActionOverride))
                         {
                             orderEntryPrior = orderEntry;
-                            orderEntry = SubmitShortTrade();
+                            orderEntry = SubmitShortTrade(algoSystemUserActions);
                         }
                         else
                         {
@@ -3004,6 +3028,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                     {
                         bool isUserActionOverride = IsUserActionOverride;
                         IsUserActionOverride = false; //must reset
+                        AlgoSystemUserActions algoSystemUserActions = AlgoSystemUserActions;
+                        AlgoSystemUserActions = AlgoSystemUserActions.None;
 
                         if (PreTradeValidateCanEnterTradeOCO(isPositionCloseModeLimitExecuted, isUserActionOverride))
                         {
@@ -3182,6 +3208,11 @@ namespace NinjaTrader.NinjaScript.Strategies
                 case StrategyTradeWorkFlowState.ErrorTimeOut:
                     return ProcessWorkFlow(StrategyTradeWorkFlowState.Error);
                 case StrategyTradeWorkFlowState.Error:
+
+                    //reset
+                    AlgoSystemUserActions = AlgoSystemUserActions.None;
+                    IsUserActionOverride = false;
+
                     if (IsHistoricalTradeOrPlayBack || IsStrategyUnSafeMode)
                     {
                         CancelAllOrders();
@@ -3322,6 +3353,10 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
 
                 case StrategyTradeWorkFlowState.CycleComplete:
+                    
+                    AlgoSystemUserActions = AlgoSystemUserActions.None;
+                    IsUserActionOverride = false;
+
                     TradeWorkFlowOnMarketDataDisable();
                     TradeWorkFlow = StrategyTradeWorkFlowState.Waiting;
                     break;
@@ -3467,9 +3502,36 @@ namespace NinjaTrader.NinjaScript.Strategies
             ProcessWorkFlow();
         }
 
-        public virtual void TradeWorkFlowNewOrderCustom(object tradeDirection)
+        public virtual void TradeWorkFlowNewOrderCustom(object action)
         {
-            this.TradeWorkFlowNewOrder((StrategyTradeWorkFlowState)tradeDirection);
+
+            StrategyTradeWorkFlowState tradeDirection = StrategyTradeWorkFlowState.Waiting;
+
+            IsUserActionOverride = true;
+
+            //add in condition to test for AlgoSystemUserActions set by user actions
+            if (action is AlgoSystemUserActions)
+            {
+                AlgoSystemUserActions = (AlgoSystemUserActions)action;
+
+                if (AlgoSystemUserActions >= AlgoSystemUserActions.Buy)
+                {
+                    tradeDirection = StrategyTradeWorkFlowState.GoLong;
+                }
+                else if (AlgoSystemUserActions <= AlgoSystemUserActions.Sell)
+                {
+                    tradeDirection = StrategyTradeWorkFlowState.GoShort;
+                }
+                else if (AlgoSystemUserActions == AlgoSystemUserActions.EntryOCO)
+                {
+                    tradeDirection = StrategyTradeWorkFlowState.GoOCOLongShort;
+                }
+            }
+            else
+            {
+                tradeDirection = (StrategyTradeWorkFlowState)action;
+            }
+            this.TradeWorkFlowNewOrder(tradeDirection);
 
         }
 
@@ -3511,32 +3573,32 @@ namespace NinjaTrader.NinjaScript.Strategies
             //test IsTradeManagementEnabled -- make sure something is not midflight such as order operations
             if (!IsTradeManagementEnabled || !IsTradeWorkFlowReady())
                 return;
-                
+
             //use this to guard against multiple thread entry from OnMarket data and onBarUpdate
             if (isInTradeManagementProcessInternal)
                 return;
-            
+
             //fine grain lock
             lock (lockObjectTradeManInternal)
             {
                 if (isInTradeManagementProcessInternal)
                     return;
-                    
+
                 isInTradeManagementProcessInternal = true;
             }
 
-           //add defensive code in case user override has error so the unlock occurs
+            //add defensive code in case user override has error so the unlock occurs
             try
             {
-                  TradeManagement(lastPrice);
+                TradeManagement(lastPrice);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Print("TradeManagement > Error: " + ex.ToString());
             }
             isInTradeManagementProcessInternal = false;
         }
-        
+
         public virtual void TradeManagement(double lastPrice)
         {
 
@@ -3846,10 +3908,10 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
         }
 
-        public Order SubmitShortTrade(bool isUser = false)
+        public Order SubmitShortTrade(AlgoSystemUserActions algoSystemUserActions = AlgoSystemUserActions.None)
         {
             if (tracing)
-                Print("SubmitShortTrade() >>  isUser" + isUser.ToString());
+                Print("SubmitShortTrade() >>  isUser" + algoSystemUserActions.ToString());
 
             if (State == State.Realtime && connectionStatusOrder != ConnectionStatus.Connected)
             {
@@ -3858,7 +3920,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             //check for short states working or open
             if (Position.MarketPosition == MarketPosition.Short || (IsOrderIsActive(orderEntry) && orderEntry.OrderAction == OrderAction.SellShort)) return null;
-            string signal = entry1NameShort + "M#" + entryCount.ToString() + (IsHistorical ? ".H" : isUser ? ".U" : string.Empty);
+            string signal = entry1NameShort + "M#" + entryCount.ToString() + (IsHistorical ? ".H" : algoSystemUserActions != AlgoSystemUserActions.None ? ".U" : string.Empty);
 
             //set the new trade operation state
             entryCount++;
@@ -3869,7 +3931,10 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             orderEntryName = signal;
 
-            orderEntry = SubmitShort(signal);
+            if (algoSystemUserActions != AlgoSystemUserActions.None)
+                orderEntry = SubmitShort(signal, algoSystemUserActions);
+            else
+                orderEntry = SubmitShort(signal);
 
             if (tracing)
                 Print("SubmitShortTrade() >> " + orderEntry.ToString());
@@ -3878,10 +3943,10 @@ namespace NinjaTrader.NinjaScript.Strategies
             return orderEntry;
         }
 
-        public Order SubmitLongTrade(bool isUser = false)
+        public Order SubmitLongTrade(AlgoSystemUserActions algoSystemUserActions = AlgoSystemUserActions.None)
         {
             if (tracing)
-                Print("SubmitLongTrade() >>  isUser" + isUser.ToString());
+                Print("SubmitLongTrade() >>  isUser" + algoSystemUserActions.ToString());
 
 
             if (State == State.Realtime && connectionStatusOrder != ConnectionStatus.Connected)
@@ -3892,7 +3957,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             //check for long states working or open
             if (Position.MarketPosition == MarketPosition.Long || (IsOrderIsActive(orderEntry) && orderEntry.OrderAction == OrderAction.Buy)) return null;
-            string signal = entry1NameLong + "M#" + entryCount.ToString() + (IsHistorical ? ".H" : isUser ? ".U" : string.Empty);
+            string signal = entry1NameLong + "M#" + entryCount.ToString() + (IsHistorical ? ".H" : algoSystemUserActions != AlgoSystemUserActions.None ? ".U" : string.Empty);
 
             orderEntryName = signal;
             //set the new trade operation state
@@ -3901,13 +3966,19 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             orderEntryPrior = orderEntry;
             orderEntry = null;
-            orderEntry = SubmitLong(signal);
+
+            if (algoSystemUserActions != AlgoSystemUserActions.None)
+                orderEntry = SubmitLong(signal, algoSystemUserActions);
+            else
+                orderEntry = SubmitLong(signal);
 
             if (tracing)
                 Print("SubmitLongTrade(orderEntry=" + (orderEntry == null ? "null" : orderEntry.Name));
 
             return orderEntry;
         }
+
+
 
         public virtual void SubmitProfitTarget(Order orderEntry, string oCOId)
         {
@@ -3961,6 +4032,10 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
         }
 
+        public virtual Order SubmitShort(string signal, AlgoSystemUserActions algoSystemUserActions)
+        {
+            return SubmitShort(signal);
+        }
         public virtual Order SubmitShort(string signal)
         {
             if (tracing)
@@ -3969,7 +4044,10 @@ namespace NinjaTrader.NinjaScript.Strategies
             orderEntry = SubmitOrderUnmanaged(0, OrderAction.SellShort, OrderType.Market, this.DefaultQuantity, 0, 0, String.Empty, signal);
             return orderEntry;
         }
-
+        public virtual Order SubmitLong(string signal, AlgoSystemUserActions algoSystemUserActions)
+        {
+            return SubmitLong(signal);
+        }
         public virtual Order SubmitLong(string signal)
         {
             if (tracing)
@@ -4007,10 +4085,10 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
         #endregion
         #region  Logging Tracing
-	public void Print2(string msg, NinjaTrader.NinjaScript.PrintTo printto = PrintTo.OutputTab2)
-	{
-		Print(msg, printto);
-	}
+        public void Print2(string msg, NinjaTrader.NinjaScript.PrintTo printto = PrintTo.OutputTab2)
+        {
+            Print(msg, printto);
+        }
         public void Print(string msg, NinjaTrader.NinjaScript.PrintTo printto = PrintTo.OutputTab1)
         {
             try
@@ -4142,10 +4220,16 @@ namespace NinjaTrader.NinjaScript.Strategies
                 if (value != this.isUserActionOverride)
                 {
                     this.isUserActionOverride = value;
-                    this.NotifyPropertyChanged("IsUserActionOverride");
                 }
             }
         }
+
+        [XmlIgnore, Browsable(false)]
+        public AlgoSystemUserActions AlgoSystemUserActions
+        {
+            get; set;
+        }
+
 
 
 
@@ -4644,7 +4728,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         public bool IsFlattenOnTransition { get; set; }
 
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsPlayBackHandleOnOrderUpdate", Description = "IsPlayBackHandleOnOrderUpdate True or False")]
-        public bool IsPlayBackHandleOnOrderUpdate { get;set; }
+        public bool IsPlayBackHandleOnOrderUpdate { get; set; }
 
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsRealtimeTradingOnly", Description = "Realtime Trading Only True or False")]
         public bool IsRealtimeTradingOnly
@@ -4652,8 +4736,8 @@ namespace NinjaTrader.NinjaScript.Strategies
             get { return realtimeTradingOnly; }
             set { realtimeTradingOnly = value; }
         }
-        
-        
+
+
 
         [Display(GroupName = "Zystem Params", Order = 0, Name = "Trade Engine - IsSubmitTargetsAndConfirm", Description = "Confirm Target Placement or skip")]
         public bool IsSubmitTargetsAndConfirm { get; set; }
