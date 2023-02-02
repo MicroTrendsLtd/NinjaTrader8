@@ -67,7 +67,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         SellMarket = -2,
         SellLimitAsk = -3,
         SellLimitBid = -4,
-        SellStop = -5,
+        SellStop = -5
         
     }
 
