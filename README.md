@@ -5,6 +5,7 @@ Basic to good C# programming development and NinjaTrader 8 skills are required.
 **NinjaTrader Automated Trading Systems**
 _Ready to use NinjaTrader Automated Trading systems_
 https://algofuturestrader.com/
+
 https://algofuturestrader.com/create-your-own-rules-in-your-own-ninjatrader-scripts-and-simply-inject-them-into-the-algo-trade-entry-module/
 
 **ATSQuadroStrategyBase**
