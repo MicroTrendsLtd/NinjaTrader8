@@ -4,8 +4,8 @@ Basic to good C# programming development and NinjaTrader 8 skills are required.
 
 **NinjaTrader Automated Trading Systems**
 _Ready to use NinjaTrader Automated Trading systems_
--https://algofuturestrader.com/
--https://algofuturestrader.com/create-your-own-rules-in-your-own-ninjatrader-scripts-and-simply-inject-them-into-the-algo-trade-entry-module/
+https://algofuturestrader.com/
+https://algofuturestrader.com/create-your-own-rules-in-your-own-ninjatrader-scripts-and-simply-inject-them-into-the-algo-trade-entry-module/
 
 **ATSQuadroStrategyBase**
 Hybrid Algorithmic Trading Framework NinjaTrader 8 UnManaged Trade Engine for Automated Trading Systems.
@@ -15,7 +15,7 @@ Developer: Tom Leeson of MicroTrends Ltd www.microtrends.pro
 This project is ongoing slowly...will evolve as time and resources allow and needs dictate
 
 **Collaborate & Discuss**
-All are welcome to contribute discuss share collaborate. 
+All are welcome to contribute to share collaborate. 
 
 **1. Get Started - Docs:**
 https://github.com/MicroTrendsLtd/NinjaTrader8/discussions
